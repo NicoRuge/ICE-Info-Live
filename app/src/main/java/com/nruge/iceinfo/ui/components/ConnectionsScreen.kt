@@ -8,8 +8,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.ConnectingTrain
 import com.nruge.iceinfo.model.TrainStatus
 
@@ -33,14 +35,14 @@ fun ConnectionsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "🔀 Anschlüsse in ${status.nextStop}",
+                    text = stringResource(R.string.connections_title, status.nextStop),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
 
                 if (connections.isEmpty()) {
                     Text(
-                        text = "Keine Anschlusszüge verfügbar",
+                        text = stringResource(R.string.connections_none),
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -86,7 +88,7 @@ fun ConnectionRow(conn: ConnectingTrain) {
                     shape = MaterialTheme.shapes.extraSmall
                 ) {
                     Text(
-                        text = if (conn.reachable) "erreichbar" else "verpasst",
+                        text = if (conn.reachable) stringResource(R.string.connection_reachable) else stringResource(R.string.connection_missed),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         color = if (conn.reachable)
                             MaterialTheme.colorScheme.onPrimaryContainer
@@ -116,14 +118,7 @@ fun ConnectionRow(conn: ConnectingTrain) {
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
-            if (conn.delayMinutes > 0) {
-                Text(
-                    text = "+${conn.delayMinutes} min",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            DelayBadge(delayMinutes = conn.delayMinutes, size = DelayBadgeSize.SMALL)
         }
     }
 }

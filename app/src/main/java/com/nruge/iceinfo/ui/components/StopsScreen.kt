@@ -1,4 +1,4 @@
-package com.nruge.iceinfo
+package com.nruge.iceinfo.ui.components
 
 import android.content.Intent
 import android.net.Uri
@@ -15,13 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.PoiItem
 import com.nruge.iceinfo.model.TrainStatus
 import com.nruge.iceinfo.model.TrainStop
+import com.nruge.iceinfo.samplePois
 
 @Composable
 fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
@@ -105,19 +108,12 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = if (stop.isNext) FontWeight.SemiBold else FontWeight.Normal
                 )
-                if (stop.delayMinutes > 0 && !stop.passed) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = MaterialTheme.shapes.extraSmall
-                    ) {
-                        Text(
-                            text = "+${stop.delayMinutes}",
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                if (!stop.passed) {
+                    DelayBadge(
+                        delayMinutes = stop.delayMinutes,
+                        size = DelayBadgeSize.SMALL,
+                        showUnit = false
+                    )
                 }
             }
         }
@@ -144,7 +140,7 @@ fun StopsScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     Text(
-                        text = "🛤️ Streckenverlauf",
+                        text = stringResource(R.string.stops_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -163,7 +159,7 @@ fun StopsScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Keine Halteinformationen verfügbar.")
+                Text(stringResource(R.string.stops_none))
             }
         }
         PoisCard(status = status, pois = pois)
@@ -186,13 +182,13 @@ fun PoisCard(status: TrainStatus, pois: List<PoiItem>) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🏔️ Points of Interest",
+                    text = stringResource(R.string.pois_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
                 if (!status.isConnected) {
                     Text(
-                        text = "Demo",
+                        text = stringResource(R.string.pois_demo),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
                         fontStyle = FontStyle.Italic

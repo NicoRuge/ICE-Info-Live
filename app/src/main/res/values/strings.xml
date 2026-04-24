@@ -1,3 +1,72 @@
 <resources>
     <string name="app_name">ICE Info</string>
+    <string name="app_title">ICEinfo Live</string>
+
+    <!-- Top Bar -->
+    <string name="status_demo">Demo Modus</string>
+    <string name="status_live">🟢 Live</string>
+    <string name="demo_end">Demo beenden</string>
+    <string name="notifications_cd">Benachrichtigung</string>
+    <string name="menu_cd">Menü</string>
+
+    <!-- Theme Menu -->
+    <string name="theme_system">System Standard</string>
+    <string name="theme_light">Helles Theme</string>
+    <string name="theme_dark">Dunkles Theme</string>
+    <string name="menu_info">Informationen</string>
+
+    <!-- No WiFi Screen -->
+    <string name="no_wifi_title">Kein ICE WLAN gefunden</string>
+    <string name="no_wifi_text">Verbinde dich mit \"WIFIonICE\"\nund tippe auf Verbinden.</string>
+    <string name="no_wifi_connect">🔄 Verbinden</string>
+    <string name="demo_mode">Demo-Modus</string>
+
+    <!-- Home Screen -->
+    <string name="demo_speed_label">🎮 Demo-Geschwindigkeit</string>
+
+    <!-- Travel Summary -->
+    <string name="travel_remaining_km">📏 %1$d km verbleibend</string>
+    <string name="travel_stops_progress">%1$d von %2$d Halten</string>
+    <string name="travel_arrival">⏱️ Ankunft %1$s</string>
+    <string name="travel_remaining_time">ca. %1$s verbleibend</string>
+    <string name="travel_on_time">pünktlich</string>
+
+    <!-- Connectivity -->
+    <string name="wagon_class_label">🪑 Wagenklasse</string>
+    <string name="wifi_label">📶 WLAN</string>
+    <string name="connectivity_strong">Stark</string>
+    <string name="connectivity_weak">Schwach</string>
+    <string name="connectivity_no_info">Keine Info</string>
+    <string name="connectivity_none">Kein Signal</string>
+
+    <!-- Stops Screen -->
+    <string name="stops_title">🛤️ Streckenverlauf</string>
+    <string name="stops_none">Keine Halteinformationen verfügbar.</string>
+    <string name="pois_title">🏔️ Points of Interest</string>
+    <string name="pois_demo">Demo</string>
+
+    <!-- Connections -->
+    <string name="connections_title">🔀 Anschlüsse in %1$s</string>
+    <string name="connections_none">Keine Anschlusszüge verfügbar</string>
+    <string name="connection_reachable">erreichbar</string>
+    <string name="connection_missed">verpasst</string>
+
+    <!-- Map -->
+    <string name="map_position_title">📍 Position</string>
+
+    <!-- Info Dialog -->
+    <string name="info_version">Version 1.0</string>
+    <string name="info_description">Diese App liest Live-Daten aus der ICE Portal API des Deutsche Bahn ICE-WLANs aus und zeigt sie übersichtlich an.</string>
+    <string name="info_privacy_title">Datenschutz</string>
+    <string name="info_privacy_text">Diese App speichert oder erfasst keine personenbezogenen Daten. Die API Abfragen erfolgen ausschließlich an die Interne API im Zug-WLAN.</string>
+    <string name="info_api_title">API</string>
+    <string name="info_api_url">iceportal.de/api1/rs/</string>
+    <string name="info_built_with_title">Entwickelt mit</string>
+    <string name="info_built_with_text">Kotlin · Jetpack Compose · OSMDroid · Material 3</string>
+    <string name="info_legal_title">Rechtliches</string>
+    <string name="info_legal_1">Dies ist eine inoffizielle App. Für die Richtigkeit der angezeigten Daten kann keine Haftung übernommen werden.</string>
+    <string name="info_legal_2">Diese App steht in keiner Verbindung mit der DB Fernverkehr AG, DB Systel GmbH oder anderen Tochterunternehmen der Deutsche Bahn AG.</string>
+    <string name="info_legal_3">Diese App steht in keiner Verbindung mit der Siemens Mobility GmbH</string>
+    <string name="info_legal_4">Das ICEportal.de und die ICEportal API werden von der DB Systel GmbH bereitgestellt.</string>
+    <string name="info_close">Schließen</string>
 </resources>
