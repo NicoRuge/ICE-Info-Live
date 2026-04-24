@@ -1,6 +1,7 @@
 package com.nruge.iceinfo
 
 import com.nruge.iceinfo.model.*
+import com.nruge.iceinfo.util.calculateDelayMinutes
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.okhttp.*
@@ -74,8 +75,7 @@ object TrainRepository {
         val destActualMs = destTimetable?.actualArrivalTime ?: 0L
         val destinationEta = formatTime(destScheduledMs)
         val destinationTrack = lastStop?.track?.actual ?: ""
-        val destinationDelay = if (destActualMs > 0 && destScheduledMs > 0)
-            ((destActualMs - destScheduledMs) / 60000L).toInt() else 0
+        val destinationDelay = calculateDelayMinutes(destActualMs, destScheduledMs)
         val totalDistance = lastStop?.info?.distanceFromStart ?: 0
         val currentDistance = trip.actualPosition
         val distanceToDestination = totalDistance - currentDistance
@@ -97,8 +97,7 @@ object TrainRepository {
 
             val scheduledMs = timetable?.scheduledArrivalTime ?: 0L
             val actualMs = timetable?.actualArrivalTime ?: 0L
-            val stopDelay = if (actualMs > 0 && scheduledMs > 0)
-                ((actualMs - scheduledMs) / 60000L).toInt() else 0
+            val stopDelay = calculateDelayMinutes(actualMs, scheduledMs)
 
             val stopTrack = stop.track?.actual ?: ""
             val stopName = stop.station?.name ?: "?"
@@ -168,8 +167,7 @@ object TrainRepository {
             response.connections?.map { c ->
                 val scheduledMs = c.timetable?.scheduledDepartureTime ?: 0L
                 val actualMs = c.timetable?.actualDepartureTime ?: 0L
-                val delayMin = if (actualMs > 0 && scheduledMs > 0)
-                    ((actualMs - scheduledMs) / 60000L).toInt() else 0
+                val delayMin = calculateDelayMinutes(actualMs, scheduledMs)
                 ConnectingTrain(
                     trainType = c.trainType,
                     trainNumber = c.vzn,
