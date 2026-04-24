@@ -68,6 +68,8 @@ fun InfoDialog(onDismiss: () -> Unit) {
                 Text(stringResource(R.string.info_legal_2))
                 Text(stringResource(R.string.info_legal_3))
                 Text(stringResource(R.string.info_legal_4))
+                HorizontalDivider()
+                Text("Für Jan und Marek")
             }
         },
         confirmButton = {

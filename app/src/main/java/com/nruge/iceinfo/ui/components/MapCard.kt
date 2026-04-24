@@ -64,7 +64,7 @@ fun MapCard(latitude: Double, longitude: Double) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(800.dp)
                     .clip(RoundedCornerShape(8.dp))
             )
             Text(

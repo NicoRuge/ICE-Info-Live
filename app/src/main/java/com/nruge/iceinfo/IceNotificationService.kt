@@ -5,10 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -31,22 +28,20 @@ class IceNotificationService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var notificationManager: NotificationManager
-
-    // Stop-Button in der Notification
-    private val stopReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_STOP) stopSelf()
-        }
-    }
+    private var pollingJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
-        registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startForeground(NOTIFICATION_ID, buildNotification(sampleTrainStatus))
         startPolling()
         return START_STICKY
@@ -57,11 +52,11 @@ class IceNotificationService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
-        unregisterReceiver(stopReceiver)
     }
 
     private fun startPolling() {
-        serviceScope.launch {
+        if (pollingJob?.isActive == true) return
+        pollingJob = serviceScope.launch {
             while (isActive) {
                 try {
                     val status = TrainRepository.fetchTrainStatus()
@@ -93,9 +88,9 @@ class IceNotificationService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
-        val stopIntent = PendingIntent.getBroadcast(
+        val stopIntent = PendingIntent.getService(
             this, 0,
-            Intent(ACTION_STOP),
+            Intent(this, IceNotificationService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_IMMUTABLE
         )
 

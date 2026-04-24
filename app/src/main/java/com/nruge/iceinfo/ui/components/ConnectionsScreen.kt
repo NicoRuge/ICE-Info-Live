@@ -9,11 +9,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.ConnectingTrain
 import com.nruge.iceinfo.model.TrainStatus
+import com.nruge.iceinfo.sampleConnections
 
 @Composable
 fun ConnectionsScreen(
@@ -29,31 +31,41 @@ fun ConnectionsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val displayConnections =
+            if (status.isConnected && connections.isNotEmpty()) connections
+            else sampleConnections
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.connections_title, status.nextStop),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                if (connections.isEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = stringResource(R.string.connections_none),
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = stringResource(R.string.connections_title, status.nextStop),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
                     )
-                } else {
-                    connections.forEach { conn ->
-                        ConnectionRow(conn)
-                        if (conn != connections.last()) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                            )
-                        }
+                    if (!status.isConnected) {
+                        Text(
+                            text = stringResource(R.string.pois_demo),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontStyle = FontStyle.Italic
+                        )
+                    }
+                }
+
+                displayConnections.forEachIndexed { index, conn ->
+                    ConnectionRow(conn)
+                    if (index < displayConnections.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        )
                     }
                 }
             }

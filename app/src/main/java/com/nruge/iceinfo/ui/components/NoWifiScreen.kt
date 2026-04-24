@@ -9,16 +9,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.nruge.iceinfo.R
+import com.nruge.iceinfo.model.TrainStatus
+import com.nruge.iceinfo.ui.theme.ICEInfoTheme
+import com.nruge.iceinfo.util.getIceDrawable
 
 @Composable
 fun NoWifiScreen(
     modifier: Modifier = Modifier,
+    status: TrainStatus? = null,
     onRetry: () -> Unit = {},
     onMockMode: () -> Unit = {}
 ) {
@@ -31,14 +39,45 @@ fun NoWifiScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(32.dp)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ice),
-                contentDescription = "ICE",
-                alignment = Alignment.CenterStart,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(x = (-50).dp)
-            )
+                    .height(80.dp)
+                    .graphicsLayer { clip = false }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .height(80.dp)
+                        .wrapContentWidth(unbounded = true, align = Alignment.Start)
+                        .align(Alignment.CenterStart)
+                        .offset(x = (-50).dp, y = (-55).dp)
+                        .zIndex(1f)
+                ) {
+                    repeat(2) {
+                        Image(
+                            painter = painterResource(id = R.drawable.traintracks),
+                            contentDescription = null,
+                            contentScale = ContentScale.FillHeight,
+                            modifier = Modifier
+                                .height(100.dp)
+                                .wrapContentWidth(unbounded = true)
+                        )
+                    }
+                }
+                Image(
+                    painter = painterResource(id = getIceDrawable(status?.tzn ?: "")),
+                    contentDescription = null,
+                    alignment = Alignment.CenterStart,
+                    contentScale = ContentScale.FillHeight,
+                    modifier = Modifier
+                        .height(72.dp)
+                        .wrapContentWidth(unbounded = true, align = Alignment.Start)
+                        .align(Alignment.CenterStart)
+                        .offset(x = (-350).dp, y = (-54).dp)
+                        .zIndex(2f)
+                        .graphicsLayer { clip = false }
+                )
+            }
             Text(
                 text = stringResource(R.string.no_wifi_title),
                 style = MaterialTheme.typography.headlineSmall,
@@ -64,5 +103,13 @@ fun NoWifiScreen(
                 )
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NoWifiScreenPreview() {
+    ICEInfoTheme {
+        NoWifiScreen()
     }
 }

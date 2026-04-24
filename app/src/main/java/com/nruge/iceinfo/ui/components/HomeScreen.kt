@@ -105,7 +105,7 @@ fun FullAppPreview() {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("ICEinfo Live", fontWeight = FontWeight.Bold) },
+                    title = { Text("ICEinfo", fontWeight = FontWeight.Bold) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
