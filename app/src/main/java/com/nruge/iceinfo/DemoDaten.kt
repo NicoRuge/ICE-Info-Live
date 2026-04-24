@@ -1,5 +1,7 @@
 package com.nruge.iceinfo
 
+import com.nruge.iceinfo.model.*
+
 val sampleTrainStatus = TrainStatus(
     distanceLastToNext = 120000,
     trainType = "ICE",

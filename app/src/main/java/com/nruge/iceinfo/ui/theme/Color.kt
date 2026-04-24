@@ -22,6 +22,25 @@ val DBBlau = Color(0xFF0076B6)
 // Für Fehlerzustände
 val DBRotHell = Color(0xFFFFDDE0)
 
+// Dark Mode spezifische Farben
+val DBDarkPrimaryContainer = Color(0xFF3A1A1D)
+val DBDarkOnPrimaryContainer = Color(0xFFFFB3B8)
+val DBDarkSecondary = Color(0xFFADB5BD)
+val DBDarkSecondaryContainer = Color(0xFF2C3140)
+val DBDarkOnSecondaryContainer = Color(0xFFCDD3D8)
+val DBDarkTertiary = Color(0xFF63B3E6)
+val DBDarkTertiaryContainer = Color(0xFF1A3A52)
+val DBDarkOnTertiaryContainer = Color(0xFFB3D9F2)
+val DBDarkError = Color(0xFFFF6B6B)
+val DBDarkBackground = DBDunkelblau
+val DBDarkOnBackground = Color(0xFFE8EBEE)
+val DBDarkSurface = Color(0xFF1E2433)
+val DBDarkOnSurface = Color(0xFFE8EBEE)
+val DBDarkSurfaceVariant = Color(0xFF2C3140)
+val DBDarkOnSurfaceVariant = Color(0xFFADB5BD)
+val DBDarkOutline = Color(0xFF646973)
+val DBDarkOutlineVariant = Color(0xFF3A3F4B)
+
 // Bestehende Farben die wir noch brauchen
 val Green40 = DBGruen
 val Green90 = DBGruenHell

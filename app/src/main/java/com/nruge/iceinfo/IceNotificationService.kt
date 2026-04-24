@@ -17,6 +17,7 @@ import android.os.IBinder
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import com.nruge.iceinfo.model.*
 import kotlinx.coroutines.*
 
 class IceNotificationService : Service() {

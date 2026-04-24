@@ -9,12 +9,12 @@ private val DBLightColorScheme = lightColorScheme(
 
     primary = DBRot,
     onPrimary = DBWeiss,
-    primaryContainer = Color(0xFFFFDDE0),
+    primaryContainer = DBRotHell,
     onPrimaryContainer = DBDunkelgrau,
 
     secondary = DBMittelgrau,
     onSecondary = DBWeiss,
-    secondaryContainer = Color(0xFFFFDDE0),
+    secondaryContainer = DBRotHell,
     onSecondaryContainer = DBDunkelgrau,
 
     tertiary = DBBlau,
@@ -42,34 +42,34 @@ private val DBLightColorScheme = lightColorScheme(
 private val DBDarkColorScheme = darkColorScheme(
     primary = DBRot,
     onPrimary = DBWeiss,
-    primaryContainer = Color(0xFF3A1A1D),
-    onPrimaryContainer = Color(0xFFFFB3B8),
+    primaryContainer = DBDarkPrimaryContainer,
+    onPrimaryContainer = DBDarkOnPrimaryContainer,
 
-    secondary = Color(0xFFADB5BD),
+    secondary = DBDarkSecondary,
     onSecondary = DBDunkelblau,
-    secondaryContainer = Color(0xFF2C3140),
-    onSecondaryContainer = Color(0xFFCDD3D8),
+    secondaryContainer = DBDarkSecondaryContainer,
+    onSecondaryContainer = DBDarkOnSecondaryContainer,
 
-    tertiary = Color(0xFF63B3E6),
+    tertiary = DBDarkTertiary,
     onTertiary = DBDunkelblau,
-    tertiaryContainer = Color(0xFF1A3A52),
-    onTertiaryContainer = Color(0xFFB3D9F2),
+    tertiaryContainer = DBDarkTertiaryContainer,
+    onTertiaryContainer = DBDarkOnTertiaryContainer,
 
-    error = Color(0xFFFF6B6B),
+    error = DBDarkError,
     onError = DBDunkelblau,
-    errorContainer = Color(0xFF3A1A1D),
-    onErrorContainer = Color(0xFFFFB3B8),
+    errorContainer = DBDarkPrimaryContainer,
+    onErrorContainer = DBDarkOnPrimaryContainer,
 
-    background = DBDunkelblau,
-    onBackground = Color(0xFFE8EBEE),
+    background = DBDarkBackground,
+    onBackground = DBDarkOnBackground,
 
-    surface = Color(0xFF1E2433),
-    onSurface = Color(0xFFE8EBEE),
-    surfaceVariant = Color(0xFF2C3140),
-    onSurfaceVariant = Color(0xFFADB5BD),
+    surface = DBDarkSurface,
+    onSurface = DBDarkOnSurface,
+    surfaceVariant = DBDarkSurfaceVariant,
+    onSurfaceVariant = DBDarkOnSurfaceVariant,
 
-    outline = Color(0xFF646973),
-    outlineVariant = Color(0xFF3A3F4B)
+    outline = DBDarkOutline,
+    outlineVariant = DBDarkOutlineVariant
 )
 
 @Composable
