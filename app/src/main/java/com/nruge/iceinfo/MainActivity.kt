@@ -1,72 +1,53 @@
 package com.nruge.iceinfo
 
 import android.app.Activity
-import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.SystemBarStyle
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.clickable
-import android.net.Uri
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
-import com.nruge.iceinfo.ui.theme.Green20
-import com.nruge.iceinfo.ui.theme.Green40
-import com.nruge.iceinfo.ui.theme.Green90
-import com.nruge.iceinfo.ui.theme.Grey20
-import com.nruge.iceinfo.ui.theme.Grey40
-import com.nruge.iceinfo.ui.theme.Grey90
-import com.nruge.iceinfo.ui.theme.ICEInfoTheme
-import com.nruge.iceinfo.ui.theme.AppTheme
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material.icons.filled.SettingsSuggest
-import com.nruge.iceinfo.ui.theme.Orange20
-import com.nruge.iceinfo.ui.theme.Orange40
-import com.nruge.iceinfo.ui.theme.Orange90
+import com.nruge.iceinfo.ui.theme.*
 import kotlinx.coroutines.delay
 
+// -------------------------------------------------------------------------
+// Enums & Datenmodelle
+// -------------------------------------------------------------------------
 
-// -------------------------------------------------------------------------
-// Datenmodelle
-// -------------------------------------------------------------------------
+enum class AppTheme { LIGHT, DARK, SYSTEM }
 
 data class TrainStatus(
-    val distanceLastToNext: Int = 0,
     val trainType: String,
     val trainNumber: String,
     val speed: Int,
@@ -77,6 +58,7 @@ data class TrainStatus(
     val track: String = "",
     val delayReason: String = "",
     val distanceToNext: Int = 0,
+    val distanceLastToNext: Int = 0,
     val stops: List<TrainStop> = emptyList(),
     val wagonClass: String = "",
     val connectivity: String = "",
@@ -115,7 +97,6 @@ class MainActivity : ComponentActivity() {
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -125,36 +106,27 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            var appTheme by rememberSaveable { mutableStateOf(AppTheme.SYSTEM) }
+            var appTheme by remember { mutableStateOf(AppTheme.SYSTEM) }
             val isDark = when (appTheme) {
                 AppTheme.LIGHT -> false
                 AppTheme.DARK -> true
                 AppTheme.SYSTEM -> isSystemInDarkTheme()
             }
 
-            ICEInfoTheme(appTheme = appTheme) {
+            ICEInfoTheme(darkTheme = isDark) {
                 val view = LocalView.current
                 SideEffect {
                     val window = (view.context as Activity).window
                     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
                 }
+
                 var trainStatus by remember { mutableStateOf(sampleTrainStatus.copy(isConnected = false)) }
                 var serviceRunning by remember { mutableStateOf(false) }
                 var isMockMode by remember { mutableStateOf(false) }
                 var mapVisible by remember { mutableStateOf(false) }
+                var showInfo by remember { mutableStateOf(false) }
                 var isChecking by remember { mutableStateOf(false) }
                 var pois by remember { mutableStateOf(samplePois) }
-
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        if (!isMockMode) {
-                            trainStatus = TrainRepository.fetchTrainStatus()
-                            pois = TrainRepository.fetchPois()
-                        }
-                        delay(3000)
-                    }
-                }
-
                 val context = LocalContext.current
 
                 LaunchedEffect(isMockMode) {
@@ -182,15 +154,14 @@ class MainActivity : ComponentActivity() {
                                         text = "ICEinfo Live",
                                         fontWeight = FontWeight.Bold
                                     )
-                                    if (isMockMode) {
-                                        Text(
+                                    when {
+                                        isMockMode -> Text(
                                             text = "Demo Modus",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                             fontStyle = FontStyle.Italic
                                         )
-                                    } else if (trainStatus.isConnected) {
-                                        Text(
+                                        trainStatus.isConnected -> Text(
                                             text = "🟢 Live",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -199,23 +170,19 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             navigationIcon = {
-                                if(isMockMode) {
-                                    IconButton(onClick = { isMockMode = false }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Mock-Modus"
-                                        )
+                                if (isMockMode) {
+                                    IconButton(onClick = {
+                                        isMockMode = false
+                                        trainStatus = sampleTrainStatus.copy(isConnected = false)
+                                    }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Demo beenden")
                                     }
                                 }
                             },
-                                actions = {
+                            actions = {
                                 var menuExpanded by remember { mutableStateOf(false) }
-
                                 IconButton(onClick = { menuExpanded = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "Menü"
-                                    )
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Menü")
                                 }
                                 DropdownMenu(
                                     expanded = menuExpanded,
@@ -223,42 +190,23 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     DropdownMenuItem(
                                         text = { Text("System Standard") },
-                                        onClick = {
-                                            appTheme = AppTheme.SYSTEM
-                                            menuExpanded = false
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.SettingsSuggest,
-                                                contentDescription = null
-                                            )
-                                        }
+                                        onClick = { appTheme = AppTheme.SYSTEM; menuExpanded = false },
+                                        leadingIcon = { Icon(Icons.Default.SettingsBrightness, null) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Helles Theme") },
-                                        onClick = {
-                                            appTheme = AppTheme.LIGHT
-                                            menuExpanded = false
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.LightMode,
-                                                contentDescription = null
-                                            )
-                                        }
+                                        onClick = { appTheme = AppTheme.LIGHT; menuExpanded = false },
+                                        leadingIcon = { Icon(Icons.Default.LightMode, null) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Dunkles Theme") },
-                                        onClick = {
-                                            appTheme = AppTheme.DARK
-                                            menuExpanded = false
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.DarkMode,
-                                                contentDescription = null
-                                            )
-                                        }
+                                        onClick = { appTheme = AppTheme.DARK; menuExpanded = false },
+                                        leadingIcon = { Icon(Icons.Default.DarkMode, null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Informationen") },
+                                        onClick = { showInfo = true; menuExpanded = false },
+                                        leadingIcon = { Icon(Icons.Default.Info, null) }
                                     )
                                 }
                             },
@@ -272,7 +220,7 @@ class MainActivity : ComponentActivity() {
                         NavigationBar {
                             NavigationBarItem(
                                 selected = serviceRunning,
-                                enabled = trainStatus.isConnected,
+                                enabled = trainStatus.isConnected || isMockMode,
                                 onClick = {
                                     if (serviceRunning) {
                                         stopService(Intent(context, IceNotificationService::class.java))
@@ -292,33 +240,23 @@ class MainActivity : ComponentActivity() {
                                 },
                                 icon = {
                                     Icon(
-                                        imageVector = if (serviceRunning)
-                                            Icons.Default.NotificationsOff
-                                        else
-                                            Icons.Default.Notifications,
+                                        imageVector = if (serviceRunning) Icons.Default.NotificationsOff else Icons.Default.Notifications,
                                         contentDescription = null
                                     )
                                 },
-                                label = {
-                                    Text(if (serviceRunning) "Stop" else "Notification")
-                                }
+                                label = { Text(if (serviceRunning) "Stop" else "Notification") }
                             )
                             NavigationBarItem(
                                 selected = mapVisible,
-                                enabled = trainStatus.isConnected,
+                                enabled = trainStatus.isConnected || isMockMode,
                                 onClick = { mapVisible = !mapVisible },
-                                icon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Map,
-                                        contentDescription = null
-                                    )
-                                },
+                                icon = { Icon(Icons.Default.Map, contentDescription = null) },
                                 label = { Text("Karte") }
                             )
                         }
                     }
                 ) { innerPadding ->
-                    if (!trainStatus.isConnected) {
+                    if (!trainStatus.isConnected && !isMockMode) {
                         NoWifiScreen(
                             modifier = Modifier.padding(innerPadding),
                             onRetry = {
@@ -336,10 +274,54 @@ class MainActivity : ComponentActivity() {
                             isDarkTheme = isDark,
                             serviceRunning = serviceRunning,
                             mapVisible = mapVisible,
-                            modifier = Modifier.padding(innerPadding),
-                            pois = pois
+                            pois = pois,
+                            modifier = Modifier.padding(innerPadding)
                         )
                     }
+                }
+                if (showInfo) {
+                    AlertDialog(
+                        onDismissRequest = { showInfo = false },
+                        icon = { Icon(Icons.Default.Train, contentDescription = null) },
+                        title = { Text("ICEinfo Live", fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Version 1.0", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary)
+                                HorizontalDivider()
+                                Text("Diese App liest Live-Daten aus der ICE Portal API des Deutsche Bahn ICE-WLANs aus und zeigt sie übersichtlich an.",
+                                    style = MaterialTheme.typography.bodyMedium)
+                                HorizontalDivider()
+                                Text("Datenschutz", fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge)
+                                Text("Diese App speichert oder erfasst keine personenbezogenen Daten. Die API Abfragen erfolgen ausschließlich an die Interne API im Zug-WLAN.")
+                                HorizontalDivider()
+                                Text("API", fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge)
+                                Text("iceportal.de/api1/rs/",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary)
+                                HorizontalDivider()
+                                Text("Entwickelt mit", fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge)
+                                Text("Kotlin · Jetpack Compose · OSMDroid · Material 3",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary)
+                                HorizontalDivider()
+                                Text("Rechtliches", fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge)
+                                Text("Dies ist eine inoffizielle App. Für die Richtigkeit der angezeigten Daten kann keine Haftung übernommen werden.")
+                                Text("Diese App steht in keiner Verbindung mit der DB Fernverkehr AG, DB Systel GmbH oder anderen Tochterunternehmen der Deutsche Bahn AG.")
+                                Text("Diese App steht in keiner Verbindung mit der Siemens Mobility GmbH")
+                                Text("Das ICEportal.de und die ICEportal API werden von der DB Systel GmbH bereitgestellt.")
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showInfo = false }) {
+                                Text("Schließen")
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -347,8 +329,16 @@ class MainActivity : ComponentActivity() {
 }
 
 // -------------------------------------------------------------------------
-// Hilfsfunktion ICE-Typ
+// Hilfsfunktionen
 // -------------------------------------------------------------------------
+
+fun getIceDrawable(tzn: String): Int {
+    val number = tzn.removePrefix("ICE").toIntOrNull() ?: return R.drawable.ice
+    return when (number) {
+        in 701..899 -> R.drawable.ice
+        else -> R.drawable.ice
+    }
+}
 
 fun getIceClass(tzn: String): String {
     val number = tzn.removePrefix("ICE").toIntOrNull() ?: return ""
@@ -367,7 +357,7 @@ fun getIceClass(tzn: String): String {
 }
 
 // -------------------------------------------------------------------------
-// Hauptscreen
+// NoWifi Screen
 // -------------------------------------------------------------------------
 
 @Composable
@@ -385,7 +375,14 @@ fun NoWifiScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(32.dp)
         ) {
-            Text(text = "🚄", fontSize = 64.sp)
+            Image(
+                painter = painterResource(id = R.drawable.ice),
+                contentDescription = "ICE",
+                alignment = Alignment.CenterStart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(x = (-50).dp)
+            )
             Text(
                 text = "Kein ICE WLAN gefunden",
                 style = MaterialTheme.typography.headlineSmall,
@@ -393,19 +390,17 @@ fun NoWifiScreen(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Verbinde dich mit dem WLAN im Zug\nund öffne die App erneut.",
+                text = "Verbinde dich mit \"WIFIonICE\"\nund tippe auf Verbinden.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = onRetry) {
-                Text("\uD83D\uDD04 Verbinden")
+                Text("🔄 Verbinden")
             }
             Spacer(modifier = Modifier.height(50.dp))
-            TextButton(
-                onClick = { onMockMode() }
-            ) {
+            TextButton(onClick = onMockMode) {
                 Text(
                     text = "Demo-Modus",
                     style = MaterialTheme.typography.bodySmall,
@@ -415,63 +410,84 @@ fun NoWifiScreen(
         }
     }
 }
+
+// -------------------------------------------------------------------------
+// Main Screen
+// -------------------------------------------------------------------------
+
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
     status: TrainStatus = sampleTrainStatus,
     pois: List<PoiItem> = emptyList(),
-    serviceRunning: Boolean = false,
     mapVisible: Boolean = false,
     isDarkTheme: Boolean = false
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 0.dp)
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Spacer(modifier = Modifier.height(10.dp))
-        // Titelkarte
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Row(
+
+        // Titelkarte mit Zugbild
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = getIceDrawable(status.tzn)),
+                contentDescription = null,
+                alignment = Alignment.CenterStart,
+                contentScale = ContentScale.FillHeight,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .height(50.dp)
+                    .align(Alignment.TopStart)
+                    .offset(x = (-55).dp, y = (-15).dp)
+                    .zIndex(1f)
+            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 35.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             ) {
-                Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "${status.trainType} ${status.trainNumber}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = getIceClass(status.tzn),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
                     Text(
-                        text = "${status.trainType} ${status.trainNumber}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        fontStyle = FontStyle.Italic,
+                        text = "${status.speed} km/h",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Text(
-                        text = getIceClass(status.tzn),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
                 }
-                Text(
-                    text = "${status.speed} km/h",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
             }
         }
-
-
 
         // Reisezusammenfassung
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -479,22 +495,14 @@ fun MainScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Von → Nach
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "${status.stops.firstOrNull()?.name ?: "—"} ➜ ${status.destination}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
+                Text(
+                    text = "${status.stops.firstOrNull()?.name ?: "—"} ➜ ${status.destination}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                // Fortschritt
                 val totalStops = status.stops.size
                 val passedStops = status.stops.count { it.passed }
                 val progressPercent = if (totalStops > 0)
@@ -525,8 +533,8 @@ fun MainScreen(
                     trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                // Ankunft + verbleibende Zeit
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -562,10 +570,7 @@ fun MainScreen(
                             )
                         }
                     } else {
-                        Surface(
-                            color = Green90,
-                            shape = MaterialTheme.shapes.small
-                        ) {
+                        Surface(color = Green90, shape = MaterialTheme.shapes.small) {
                             Text(
                                 text = "pünktlich",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -579,7 +584,7 @@ fun MainScreen(
             }
         }
 
-        // Wagenklasse + WLAN nebeneinander
+        // Wagenklasse + WLAN
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -611,7 +616,6 @@ fun MainScreen(
                     )
                 }
             }
-            // Wifi Card
             Card(
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.cardColors(
@@ -656,7 +660,6 @@ fun MainScreen(
                     )
                 }
             }
-
         }
 
         // Karte
@@ -714,10 +717,8 @@ fun MainScreen(
             }
         }
 
-        //POIs
+        // POIs
         val displayPois = if (status.isConnected && pois.isNotEmpty()) pois else samplePois
-        val context = LocalContext.current
-
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -802,10 +803,10 @@ fun MainScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
-
-
 
 // -------------------------------------------------------------------------
 // Composables
@@ -831,51 +832,44 @@ fun InfoRow(label: String, value: String) {
 fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
     val dotColor = when {
         stop.isNext -> MaterialTheme.colorScheme.primary
-        stop.passed -> MaterialTheme.colorScheme.outlineVariant
         else -> MaterialTheme.colorScheme.outline
     }
     val lineColor = if (stop.passed)
         MaterialTheme.colorScheme.primary
     else
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-
     val textColor = when {
-        stop.passed -> MaterialTheme.colorScheme.outlineVariant
         stop.isNext -> MaterialTheme.colorScheme.onSurface
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
     ) {
-        // Linke Seite: Linie + Dot
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(24.dp)
         ) {
-            // Linie oben
             Box(
                 modifier = Modifier
                     .width(2.dp)
                     .weight(1f)
                     .background(if (isFirst) Color.Transparent else lineColor)
             )
-            // Dot
             Box(
                 modifier = Modifier
                     .size(if (stop.isNext) 14.dp else 10.dp)
                     .clip(CircleShape)
                     .background(dotColor)
             )
-            // Linie unten
             Box(
                 modifier = Modifier
                     .width(2.dp)
                     .weight(1f)
-                    .background(if (isLast) Color.Transparent else
-                        if (stop.passed) MaterialTheme.colorScheme.primary
+                    .background(
+                        if (isLast) Color.Transparent
+                        else if (stop.passed) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
             )
@@ -883,7 +877,6 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Rechte Seite: Inhalt
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -897,11 +890,9 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
                 fontWeight = if (stop.isNext) FontWeight.Bold else FontWeight.Normal,
                 style = if (stop.isNext) MaterialTheme.typography.bodyLarge
                 else MaterialTheme.typography.bodyMedium,
-                textDecoration = if (stop.passed) TextDecoration.LineThrough
-                else TextDecoration.None,
+                textDecoration = if (stop.passed) TextDecoration.LineThrough else TextDecoration.None,
                 modifier = Modifier.weight(1f)
             )
-
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -953,8 +944,7 @@ fun FullAppPreview() {
                     title = { Text("ICEinfo Live", fontWeight = FontWeight.Bold) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.height(56.dp)
+                    )
                 )
             },
             bottomBar = {

@@ -1,63 +1,83 @@
 package com.nruge.iceinfo.ui.theme
-
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val DBLightColorScheme = lightColorScheme(
+
+    primary = DBRot,
+    onPrimary = DBWeiss,
+    primaryContainer = Color(0xFFFFDDE0),
+    onPrimaryContainer = DBDunkelgrau,
+
+    secondary = DBMittelgrau,
+    onSecondary = DBWeiss,
+    secondaryContainer = Color(0xFFFFDDE0),
+    onSecondaryContainer = DBDunkelgrau,
+
+    tertiary = DBBlau,
+    onTertiary = DBWeiss,
+    tertiaryContainer = DBBlauHell,
+    onTertiaryContainer = DBDunkelgrau,
+
+    error = DBRot,
+    onError = DBWeiss,
+    errorContainer = DBRotHell,
+    onErrorContainer = DBRotDark,
+
+    background = DBHellgrau,
+    onBackground = DBDunkelgrau,
+
+    surface = DBWeiss,
+    onSurface = DBDunkelgrau,
+    surfaceVariant = DBHellgrau,
+    onSurfaceVariant = DBMittelgrau,
+
+    outline = DBMittelgrau,
+    outlineVariant = Color(0xFFCDD3D8)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val DBDarkColorScheme = darkColorScheme(
+    primary = DBRot,
+    onPrimary = DBWeiss,
+    primaryContainer = Color(0xFF3A1A1D),
+    onPrimaryContainer = Color(0xFFFFB3B8),
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondary = Color(0xFFADB5BD),
+    onSecondary = DBDunkelblau,
+    secondaryContainer = Color(0xFF2C3140),
+    onSecondaryContainer = Color(0xFFCDD3D8),
+
+    tertiary = Color(0xFF63B3E6),
+    onTertiary = DBDunkelblau,
+    tertiaryContainer = Color(0xFF1A3A52),
+    onTertiaryContainer = Color(0xFFB3D9F2),
+
+    error = Color(0xFFFF6B6B),
+    onError = DBDunkelblau,
+    errorContainer = Color(0xFF3A1A1D),
+    onErrorContainer = Color(0xFFFFB3B8),
+
+    background = DBDunkelblau,
+    onBackground = Color(0xFFE8EBEE),
+
+    surface = Color(0xFF1E2433),
+    onSurface = Color(0xFFE8EBEE),
+    surfaceVariant = Color(0xFF2C3140),
+    onSurfaceVariant = Color(0xFFADB5BD),
+
+    outline = Color(0xFF646973),
+    outlineVariant = Color(0xFF3A3F4B)
 )
-
-enum class AppTheme {
-    LIGHT, DARK, SYSTEM
-}
 
 @Composable
 fun ICEInfoTheme(
-    appTheme: AppTheme = AppTheme.SYSTEM,
-    dynamicColor: Boolean = true,
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val darkTheme = when (appTheme) {
-        AppTheme.LIGHT -> false
-        AppTheme.DARK -> true
-        AppTheme.SYSTEM -> isSystemInDarkTheme()
-    }
-
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DBDarkColorScheme else DBLightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

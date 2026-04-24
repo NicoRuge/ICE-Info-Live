@@ -21,6 +21,7 @@ import kotlinx.coroutines.*
 
 class IceNotificationService : Service() {
 
+
     companion object {
         const val CHANNEL_ID = "ice_tracker_channel"
         const val NOTIFICATION_ID = 1
@@ -83,6 +84,7 @@ class IceNotificationService : Service() {
         }
         notificationManager.createNotificationChannel(channel)
     }
+
 
     private fun buildNotification(status: TrainStatus): Notification {
         val openIntent = PendingIntent.getActivity(

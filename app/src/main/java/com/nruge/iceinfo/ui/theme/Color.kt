@@ -1,23 +1,32 @@
 package com.nruge.iceinfo.ui.theme
 
 import androidx.compose.ui.graphics.Color
+val Green20 = Color(0xFF1B5E20)
+val Orange20 = Color(0xFFE65100)
+val Grey20 = Color(0xFF424242)
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
-val Green40 = Color(0xFF2E7D32)
-val Green90 = Color(0xFFC8E6C9)
+// DB Hauptfarben
+val DBRot = Color(0xFFEC0016)
+val DBRotDark = Color(0xFFC0001A)
+val DBDunkelblau = Color(0xFF131821)
+val DBHellgrau = Color(0xFFF0F3F5)
+val DBMittelgrau = Color(0xFF646973)
+val DBDunkelgrau = Color(0xFF282D37)
+val DBWeiss = Color(0xFFFFFFFF)
+val DBGruen = Color(0xFF408335)
+val DBGruenHell = Color(0xFFDEEDD6)
+val DBBlauHell = Color(0xFFD7E9F7)
+val DBBlau = Color(0xFF0076B6)
+
+// Für Fehlerzustände
+val DBRotHell = Color(0xFFFFDDE0)
+
+// Bestehende Farben die wir noch brauchen
+val Green40 = DBGruen
+val Green90 = DBGruenHell
 val Orange40 = Color(0xFFE65100)
 val Orange90 = Color(0xFFFFE0B2)
-val Grey40 = Color(0xFF616161)
-val Grey90 = Color(0xFFF5F5F5)
-val Green20 = Color(0xFF1B5E20)
-val Green30 = Color(0xFF388E3C)
-val Orange20 = Color(0xFFE65100)
-val Orange30 = Color(0xFFBF360C)
-val Grey20 = Color(0xFF424242)
-val Grey30 = Color(0xFF616161)
+val Grey40 = DBMittelgrau
+val Grey90 = DBHellgrau
+
