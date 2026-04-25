@@ -20,18 +20,19 @@ val sampleTrainStatus = TrainStatus(
     latitude = 51.4825,
     longitude = 11.9906,
     stops = listOf(
-        TrainStop("Hamburg-Altona", "08:12", "08:12", 0, "12", passed = true, isNext = false),
-        TrainStop("Hannover Hbf", "09:31", "09:36", 5, "4", passed = true, isNext = false),
-        TrainStop("Göttingen", "10:15", "10:17", 2, "10", passed = false, isNext = true),
-        TrainStop("Kassel-Wilhelmshöhe", "10:35", "10:38", 3, "2", passed = false, isNext = false),
-        TrainStop("Würzburg Hbf", "11:58", "12:02", 4, "6", passed = false, isNext = false),
-        TrainStop("Nürnberg Hbf", "12:54", "12:59", 5, "9", passed = false, isNext = false),
-        TrainStop("München Hbf", "14:11", "14:11", 0, "18", passed = false, isNext = false)
+        TrainStop("Hamburg-Altona", "8002545", "08:12", "08:12", 0, "12", passed = true, isNext = false, distanceFromStart = 0),
+        TrainStop("Hannover Hbf", "8000152", "09:31", "09:36", 5, "4", passed = true, isNext = false, distanceFromStart = 150000),
+        TrainStop("Göttingen", "8000128", "10:15", "10:17", 2, "10", passed = false, isNext = true, distanceFromStart = 250000),
+        TrainStop("Kassel-Wilhelmshöhe", "8003197", "10:35", "10:38", 3, "2", passed = false, isNext = false, distanceFromStart = 300000),
+        TrainStop("Würzburg Hbf", "8000260", "11:58", "12:02", 4, "6", passed = false, isNext = false, distanceFromStart = 500000),
+        TrainStop("Nürnberg Hbf", "8000284", "12:54", "12:59", 5, "9", passed = false, isNext = false, distanceFromStart = 600000),
+        TrainStop("München Hbf", "8000261", "14:11", "14:11", 0, "18", passed = false, isNext = false, distanceFromStart = 800000)
     ),
     destinationEta = "21:46",
     destinationTrack = "6",
     destinationDelay = 21,
-    distanceToDestination = 467000
+    distanceToDestination = 467000,
+    actualPosition = 180000
 )
 
 val samplePois = listOf(

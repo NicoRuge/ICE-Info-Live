@@ -6,10 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
+import android.graphics.*
 import android.os.IBinder
 import android.util.Log
 import android.widget.RemoteViews
@@ -21,14 +18,20 @@ class IceNotificationService : Service() {
 
 
     companion object {
-        const val CHANNEL_ID = "ice_tracker_channel"
+        const val CHANNEL_ID = "ice_tracker_channel_v2"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.nruge.iceinfo.ACTION_STOP"
+        const val ACTION_SELECT_TARGET = "com.nruge.iceinfo.ACTION_SELECT_TARGET"
+        const val ACTION_UPDATE_TARGET = "com.nruge.iceinfo.ACTION_UPDATE_TARGET"
+        const val EXTRA_DEMO_SPEED = "extra_demo_speed"
+        const val EXTRA_TARGET_EVA = "extra_target_eva"
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var notificationManager: NotificationManager
     private var pollingJob: Job? = null
+    private var currentDemoSpeed: Int = -1
+    private var targetStopEva: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -42,8 +45,24 @@ class IceNotificationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, buildNotification(sampleTrainStatus))
-        startPolling()
+        
+        val newTargetEva = intent?.getStringExtra(EXTRA_TARGET_EVA)
+        if (newTargetEva != null) {
+            targetStopEva = newTargetEva
+        }
+
+        val demoSpeed = intent?.getIntExtra(EXTRA_DEMO_SPEED, -1) ?: -1
+        if (demoSpeed != -1) {
+            currentDemoSpeed = demoSpeed
+            Log.d("IceService", "Demo speed updated: $currentDemoSpeed")
+        }
+        
+        val status = sampleTrainStatus.let { 
+            if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it 
+        }
+        
+        startForeground(NOTIFICATION_ID, buildNotification(status))
+        startPolling(currentDemoSpeed)
         return START_STICKY
     }
 
@@ -54,12 +73,16 @@ class IceNotificationService : Service() {
         serviceScope.cancel()
     }
 
-    private fun startPolling() {
+    private fun startPolling(demoSpeed: Int = -1) {
+        this.currentDemoSpeed = demoSpeed
+        
         if (pollingJob?.isActive == true) return
         pollingJob = serviceScope.launch {
             while (isActive) {
                 try {
-                    val status = TrainRepository.fetchTrainStatus()
+                    val status = TrainRepository.fetchTrainStatus().let {
+                        if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it
+                    }
                     notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
                 } catch (e: Exception) {
                     Log.e("IceService", "Fehler: ${e.message}")
@@ -73,7 +96,7 @@ class IceNotificationService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "ICE Tracker",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Zeigt Geschwindigkeit und nächsten Halt"
             setShowBadge(false)
@@ -93,26 +116,48 @@ class IceNotificationService : Service() {
             Intent(this, IceNotificationService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_IMMUTABLE
         )
+        val selectTargetIntent = PendingIntent.getActivity(
+            this, 1,
+            Intent(this, MainActivity::class.java).apply { 
+                action = ACTION_SELECT_TARGET
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val targetStop = status.stops.find { it.evaNr == targetStopEva } ?: status.stops.find { it.isNext }
+        
+        val displayStopName = targetStop?.name ?: status.nextStop
+        val displayEta = targetStop?.scheduledArrival ?: status.eta
+        val displayTrack = targetStop?.track ?: status.track
+        val displayDelay = targetStop?.delayMinutes ?: status.delayMinutes
 
         val delayText = when {
-            status.delayMinutes > 0 -> "+${status.delayMinutes} min"
+            displayDelay > 0 -> "+$displayDelay min"
             else -> "pünktlich"
         }
-        val trackText = if (status.track.isNotEmpty()) "Gleis ${status.track}" else ""
+        val trackText = if (displayTrack.isNotEmpty()) "Gleis $displayTrack" else ""
 
-        // Progress berechnen
-        val progress = if (status.distanceLastToNext > 0) {
-            val covered = status.distanceLastToNext - status.distanceToNext
-            (covered.toFloat() / status.distanceLastToNext).coerceIn(0f, 1f)
+        // Progress berechnen basierend auf dem Ziel
+        val progress = if (targetStop != null) {
+            val currentPos = status.actualPosition
+            val targetPos = targetStop.distanceFromStart
+            val prevStop = status.stops.takeWhile { it.evaNr != targetStop.evaNr }.lastOrNull { it.passed } 
+                ?: status.stops.firstOrNull()
+            
+            val startPos = prevStop?.distanceFromStart ?: 0
+            if (targetPos > startPos) {
+                ((currentPos - startPos).toFloat() / (targetPos - startPos)).coerceIn(0f, 1f)
+            } else 0f
         } else 0f
 
         val remoteViews = RemoteViews(packageName, R.layout.notification_custom).apply {
             setTextViewText(R.id.tv_speed, "${status.speed} km/h")
             setTextViewText(R.id.tv_train_info, "${status.trainType} ${status.trainNumber}")
-            setTextViewText(R.id.tv_next_stop, "→ ${status.nextStop}")
-            setTextViewText(R.id.tv_eta, "Ankunft: ${status.eta} $trackText")
+            setTextViewText(R.id.tv_next_stop, "→ $displayStopName")
+            setTextViewText(R.id.tv_eta, "Ankunft: $displayEta $trackText")
             setTextViewText(R.id.tv_delay, delayText)
-            if (status.delayMinutes > 0) {
+            if (displayDelay > 0) {
                 setTextColor(R.id.tv_delay, Color.RED)
             } else {
                 setTextColor(R.id.tv_delay, Color.parseColor("#388E3C"))
@@ -120,22 +165,35 @@ class IceNotificationService : Service() {
             setImageViewBitmap(R.id.iv_tracks, createTrainTrackBitmap(progress))
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+        val smallIcon = when {
+            status.speed >= 250 -> R.drawable.ic_speed_300
+            status.speed >= 150 -> R.drawable.ic_speed_200
+            status.speed >= 50 -> R.drawable.ic_speed_100
+            else -> R.drawable.ic_speed
+        }
+
+        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(smallIcon)
             .setCustomContentView(remoteViews)
             .setCustomBigContentView(remoteViews)
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(false)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .addAction(
+                android.R.drawable.ic_menu_directions,
+                "Ziel",
+                selectTargetIntent
+            )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Beenden",
                 stopIntent
             )
-            .build()
+
+        return notificationBuilder.build()
     }
 
     private fun createTrainTrackBitmap(progress: Float): Bitmap {

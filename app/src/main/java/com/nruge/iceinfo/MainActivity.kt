@@ -28,6 +28,7 @@ import com.nruge.iceinfo.ui.AppBottomBar
 import com.nruge.iceinfo.ui.AppNavigation
 import com.nruge.iceinfo.ui.AppTopBar
 import com.nruge.iceinfo.ui.InfoDialog
+import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.MainViewModel
 import com.nruge.iceinfo.ui.components.NoWifiScreen
 import com.nruge.iceinfo.ui.theme.ICEInfoTheme
@@ -40,6 +41,11 @@ class MainActivity : ComponentActivity() {
         if (granted) {
             startForegroundService(Intent(this, IceNotificationService::class.java))
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +81,15 @@ class MainActivity : ComponentActivity() {
 
                 var serviceRunning by remember { mutableStateOf(false) }
                 var showInfo by remember { mutableStateOf(false) }
+                var showStopSelection by remember { mutableStateOf(false) }
+                
                 val context = LocalContext.current
+
+                LaunchedEffect(intent) {
+                    if (intent?.action == IceNotificationService.ACTION_SELECT_TARGET) {
+                        showStopSelection = true
+                    }
+                }
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -94,13 +108,11 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                                         == PackageManager.PERMISSION_GRANTED) {
-                                        context.startForegroundService(Intent(context, IceNotificationService::class.java))
-                                        serviceRunning = true
+                                        showStopSelection = true
                                     } else {
                                         requestPermissionLauncher.launch(
                                             android.Manifest.permission.POST_NOTIFICATIONS
                                         )
-                                        serviceRunning = true
                                     }
                                 }
                             },
@@ -141,13 +153,46 @@ class MainActivity : ComponentActivity() {
                             isDarkTheme = isDark,
                             isMockMode = isMockMode,
                             demoSpeed = demoSpeed,
-                            onDemoSpeedChange = { demoSpeed = it }
+                            onDemoSpeedChange = { 
+                                demoSpeed = it
+                                if (serviceRunning && isMockMode) {
+                                    val intent = Intent(context, IceNotificationService::class.java).apply {
+                                        putExtra(IceNotificationService.EXTRA_DEMO_SPEED, demoSpeed)
+                                    }
+                                    context.startForegroundService(intent)
+                                }
+                            }
                         )
                     }
                 }
 
                 if (showInfo) {
                     InfoDialog(onDismiss = { showInfo = false })
+                }
+
+                if (showStopSelection) {
+                    StopSelectionDialog(
+                        stops = trainStatus.stops,
+                        onStopSelected = { stop ->
+                            val intent = Intent(context, IceNotificationService::class.java).apply {
+                                if (serviceRunning) {
+                                    action = IceNotificationService.ACTION_UPDATE_TARGET
+                                }
+                                putExtra(IceNotificationService.EXTRA_TARGET_EVA, stop.evaNr)
+                                if (isMockMode) {
+                                    putExtra(IceNotificationService.EXTRA_DEMO_SPEED, demoSpeed)
+                                }
+                            }
+                            if (serviceRunning) {
+                                context.startService(intent)
+                            } else {
+                                context.startForegroundService(intent)
+                                serviceRunning = true
+                            }
+                            showStopSelection = false
+                        },
+                        onDismiss = { showStopSelection = false }
+                    )
                 }
             }
         }

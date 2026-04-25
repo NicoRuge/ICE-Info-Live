@@ -25,6 +25,7 @@ data class TrainStatus(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val distanceToDestination: Int = 0,
+    val actualPosition: Int = 0,
     val destinationEta: String = "",
     val destinationTrack: String = "",
     val destinationDelay: Int = 0,
@@ -34,12 +35,14 @@ data class TrainStatus(
 @Serializable
 data class TrainStop(
     val name: String,
+    val evaNr: String,
     val scheduledArrival: String,
     val actualArrival: String,
     val delayMinutes: Int,
     val track: String,
     val passed: Boolean,
-    val isNext: Boolean
+    val isNext: Boolean,
+    val distanceFromStart: Int = 0
 )
 
 @Serializable

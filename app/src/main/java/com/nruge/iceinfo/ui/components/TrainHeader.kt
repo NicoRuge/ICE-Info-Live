@@ -47,13 +47,14 @@ fun TrainHeader(status: TrainStatus) {
             }
         }
     }
-
+    Spacer(modifier = Modifier.height(5.dp))
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp)
             .graphicsLayer { clip = false }
-    ) {
+    )
+    {
         Row(
             modifier = Modifier
                 .height(70.dp)

@@ -13,6 +13,7 @@ import com.nruge.iceinfo.model.TrainStatus
 import com.nruge.iceinfo.ui.components.ConnectionsScreen
 import com.nruge.iceinfo.ui.components.HomeScreen
 import com.nruge.iceinfo.ui.components.MapScreen
+import com.nruge.iceinfo.ui.components.ServiceScreen
 import com.nruge.iceinfo.ui.components.StopsScreen
 
 @Composable
@@ -46,6 +47,9 @@ fun AppNavigation(
         }
         composable(Screen.Map.route) {
             MapScreen(status = trainStatus)
+        }
+        composable(Screen.Service.route) {
+            ServiceScreen(status = trainStatus)
         }
         composable(Screen.Connections.route) {
             ConnectionsScreen(status = trainStatus, connections = connections)

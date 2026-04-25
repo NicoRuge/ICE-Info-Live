@@ -55,13 +55,16 @@ fun AppTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onToggleService) {
-                Icon(
-                    imageVector = if (serviceRunning) Icons.Default.NotificationsActive else Icons.Default.Notifications,
-                    contentDescription = stringResource(R.string.notifications_cd),
-                    tint = if (serviceRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer
-                )
+            if (isConnected || isMockMode) {
+                IconButton(onClick = onToggleService) {
+                    Icon(
+                        imageVector = if (serviceRunning) Icons.Default.NotificationsActive else Icons.Default.Notifications,
+                        contentDescription = stringResource(R.string.notifications_cd),
+                        tint = if (serviceRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
+
 
             var menuExpanded by remember { mutableStateOf(false) }
             IconButton(onClick = { menuExpanded = true }) {

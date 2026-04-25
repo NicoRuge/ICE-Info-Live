@@ -28,7 +28,7 @@ object TrainRepository {
             json(Json {
                 ignoreUnknownKeys = true
                 coerceInputValues = true
-            })
+            }, contentType = io.ktor.http.ContentType.Any)
         }
         install(Logging) {
             level = LogLevel.INFO
@@ -122,12 +122,14 @@ object TrainRepository {
 
             stopList.add(TrainStop(
                 name = stopName,
+                evaNr = stop.station?.evaNr ?: "",
                 scheduledArrival = formatTime(scheduledMs),
                 actualArrival = formatTime(actualMs),
                 delayMinutes = stopDelay,
                 track = stopTrack,
                 passed = passed,
-                isNext = isNext
+                isNext = isNext,
+                distanceFromStart = info.distanceFromStart
             ))
         }
 
@@ -151,6 +153,7 @@ object TrainRepository {
             latitude = status.latitude,
             longitude = status.longitude,
             distanceToDestination = distanceToDestination,
+            actualPosition = trip.actualPosition,
             destinationEta = destinationEta,
             destinationTrack = destinationTrack,
             destinationDelay = destinationDelay,
