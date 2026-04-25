@@ -3,9 +3,10 @@ package com.nruge.iceinfo.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,11 +96,22 @@ fun NoWifiScreen(
                 Text(stringResource(R.string.no_wifi_connect))
             }
             Spacer(modifier = Modifier.height(50.dp))
-            TextButton(onClick = onMockMode) {
+            Text(
+                text = stringResource(R.string.demo_mode_text),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+                textAlign = TextAlign.Center
+            )
+            FilledTonalButton(
+                onClick = onMockMode,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            ) {
                 Text(
                     text = stringResource(R.string.demo_mode),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }

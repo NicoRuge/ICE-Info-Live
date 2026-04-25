@@ -20,6 +20,7 @@
     <string name="no_wifi_text">Verbinde dich mit \"WIFIonICE\"\nund tippe auf Verbinden.</string>
     <string name="no_wifi_connect">🔄 Verbinden</string>
     <string name="demo_mode">Demo-Modus</string>
+    <string name="demo_mode_text">Du kannst auch einen Demo Modus nutzen,\num die App ohne Zug-WLAN zu testen.</string>
 
     <!-- Home Screen -->
     <string name="demo_speed_label">🎮 Demo-Geschwindigkeit</string>

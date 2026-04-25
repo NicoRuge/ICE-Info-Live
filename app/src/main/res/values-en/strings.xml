@@ -12,7 +12,7 @@
     <string name="theme_dark">Dark Theme</string>
     <string name="menu_info">Infos</string>
     <string name="no_wifi_title">No train WIFI found.</string>
-    <string name="no_wifi_text">Connect to ICE train WIFI and click on \"Connect\"</string>
+    <string name="no_wifi_text">Connect to \"WIFIonICE\" and click on \"Connect\"</string>
     <string name="no_wifi_connect">🔄 Connect</string>
     <string name="demo_mode">Demo mode</string>
     <string name="demo_speed_label">🎮 Demo-Speed</string>
@@ -50,4 +50,5 @@
     <string name="info_legal_3">This app is not affiliated with Siemens Mobility GmbH.</string>
     <string name="info_legal_4">ICEportal.de and the ICEportal API are provided by DB Systel GmbH.</string>
     <string name="info_close">Close</string>
+    <string name="demo_mode_text">You can also use a demo mode,\nto test the app without train Wi-Fi.</string>
 </resources>
