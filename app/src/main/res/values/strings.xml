@@ -21,6 +21,7 @@
     <string name="no_wifi_connect">🔄 Verbinden</string>
     <string name="demo_mode">Demo-Modus</string>
     <string name="demo_mode_text">Du kannst auch einen Demo Modus nutzen,\num die App ohne Zug-WLAN zu testen.</string>
+    <string name="no_wifi_api_hint">ICEportal.de aktuell nicht erreichbar.</string>
 
     <!-- Home Screen -->
     <string name="demo_speed_label">🎮 Demo-Geschwindigkeit</string>
@@ -70,4 +71,13 @@
     <string name="info_legal_3">Diese App steht in keiner Verbindung mit der Siemens Mobility GmbH</string>
     <string name="info_legal_4">Das ICEportal.de und die ICEportal API werden von der DB Systel GmbH bereitgestellt.</string>
     <string name="info_close">Schließen</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Willkommen bei ICEinfo!</string>
+    <string name="onboarding_welcome">Diese App zeigt dir Live-Daten deiner aktuellen ICE-Fahrt direkt aus dem WLAN im Zug.</string>
+    <string name="onboarding_feature_live">Echtzeit-Daten: Geschwindigkeit und Verspätung in Echtzeit.</string>
+    <string name="onboarding_feature_notif">Benachrichtigung: Aktiviere die Glocke für Infos in der Statusleiste.</string>
+    <string name="onboarding_feature_map">Karte: Verfolge deine aktuelle Position auf der Strecke.</string>
+    <string name="onboarding_feature_demo">Demo-Modus: Teste alle Funktionen auch ohne WLAN im Zug.</string>
+    <string name="onboarding_button">Los geht\'s!</string>
 </resources>

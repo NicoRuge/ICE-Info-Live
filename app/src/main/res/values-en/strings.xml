@@ -51,4 +51,14 @@
     <string name="info_legal_4">ICEportal.de and the ICEportal API are provided by DB Systel GmbH.</string>
     <string name="info_close">Close</string>
     <string name="demo_mode_text">You can also use a demo mode,\nto test the app without train Wi-Fi.</string>
+    <string name="no_wifi_api_hint">ICEportal.de is currently not available.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Welcome to ICEinfo!</string>
+    <string name="onboarding_welcome">This app shows you live data from your current ICE journey directly from the train\'s Wi-Fi.</string>
+    <string name="onboarding_feature_live">Real-time data: Speed and delay in real-time.</string>
+    <string name="onboarding_feature_notif">Notification: Activate the bell for info in the status bar.</string>
+    <string name="onboarding_feature_map">Map: Track your current position on the route.</string>
+    <string name="onboarding_feature_demo">Demo mode: Test all features even without Wi-Fi on the train.</string>
+    <string name="onboarding_button">Let\'s go!</string>
 </resources>

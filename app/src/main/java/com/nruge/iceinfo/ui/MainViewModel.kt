@@ -27,6 +27,9 @@ class MainViewModel : ViewModel() {
     private val _isChecking = MutableStateFlow(false)
     val isChecking = _isChecking.asStateFlow()
 
+    private val _isWIFIonICE = MutableStateFlow(false)
+    val isWIFIonICE = _isWIFIonICE.asStateFlow()
+
     private var pollingJob: Job? = null
 
     private val _connections = MutableStateFlow<List<ConnectingTrain>>(emptyList())
@@ -46,6 +49,10 @@ class MainViewModel : ViewModel() {
             _trainStatus.value = sampleTrainStatus.copy(isConnected = false)
             startPolling()
         }
+    }
+
+    fun updateWifiStatus(isOnICE: Boolean) {
+        _isWIFIonICE.value = isOnICE
     }
 
     fun retryConnection() {

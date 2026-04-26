@@ -28,6 +28,7 @@ import com.nruge.iceinfo.util.getIceDrawable
 fun NoWifiScreen(
     modifier: Modifier = Modifier,
     status: TrainStatus? = null,
+    isWIFIonICE: Boolean = false,
     onRetry: () -> Unit = {},
     onMockMode: () -> Unit = {}
 ) {
@@ -95,6 +96,17 @@ fun NoWifiScreen(
             Button(onClick = onRetry) {
                 Text(stringResource(R.string.no_wifi_connect))
             }
+
+            if (isWIFIonICE) {
+                Text(
+                    text = stringResource(R.string.no_wifi_api_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(50.dp))
             Text(
                 text = stringResource(R.string.demo_mode_text),
@@ -122,6 +134,6 @@ fun NoWifiScreen(
 @Composable
 fun NoWifiScreenPreview() {
     ICEInfoTheme {
-        NoWifiScreen()
+        NoWifiScreen(isWIFIonICE = true)
     }
 }

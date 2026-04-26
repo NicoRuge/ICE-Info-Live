@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -28,10 +29,13 @@ import com.nruge.iceinfo.ui.AppBottomBar
 import com.nruge.iceinfo.ui.AppNavigation
 import com.nruge.iceinfo.ui.AppTopBar
 import com.nruge.iceinfo.ui.InfoDialog
+import com.nruge.iceinfo.ui.OnboardingDialog
 import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.MainViewModel
 import com.nruge.iceinfo.ui.components.NoWifiScreen
 import com.nruge.iceinfo.ui.theme.ICEInfoTheme
+import com.nruge.iceinfo.util.isWIFIonICE
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -72,8 +76,17 @@ class MainActivity : ComponentActivity() {
                 val pois by viewModel.pois.collectAsState()
                 val isMockMode by viewModel.isMockMode.collectAsState()
                 val connections by viewModel.connections.collectAsState()
+                val isWIFIonICEStatus by viewModel.isWIFIonICE.collectAsState()
 
                 val view = LocalView.current
+                val context = LocalContext.current
+
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        viewModel.updateWifiStatus(isWIFIonICE(context))
+                        delay(5000)
+                    }
+                }
                 SideEffect {
                     val window = (view.context as Activity).window
                     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
@@ -83,7 +96,10 @@ class MainActivity : ComponentActivity() {
                 var showInfo by remember { mutableStateOf(false) }
                 var showStopSelection by remember { mutableStateOf(false) }
                 
-                val context = LocalContext.current
+                val prefs = remember { context.getSharedPreferences("iceinfo_prefs", MODE_PRIVATE) }
+                var showOnboarding by remember { 
+                    mutableStateOf(!prefs.getBoolean("onboarding_shown", false)) 
+                }
 
                 LaunchedEffect(intent) {
                     if (intent?.action == IceNotificationService.ACTION_SELECT_TARGET) {
@@ -140,6 +156,8 @@ class MainActivity : ComponentActivity() {
                     if (!trainStatus.isConnected && !isMockMode) {
                         NoWifiScreen(
                             modifier = Modifier.padding(innerPadding),
+                            status = trainStatus,
+                            isWIFIonICE = isWIFIonICEStatus,
                             onRetry = { viewModel.retryConnection() },
                             onMockMode = { viewModel.setMockMode(true) }
                         )
@@ -168,6 +186,13 @@ class MainActivity : ComponentActivity() {
 
                 if (showInfo) {
                     InfoDialog(onDismiss = { showInfo = false })
+                }
+
+                if (showOnboarding) {
+                    OnboardingDialog(onDismiss = {
+                        prefs.edit { putBoolean("onboarding_shown", true) }
+                        showOnboarding = false
+                    })
                 }
 
                 if (showStopSelection) {
