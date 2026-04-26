@@ -15,8 +15,12 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.tooling.preview.Preview
 import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.TrainStatus
+import com.nruge.iceinfo.sampleTrainStatus
+import com.nruge.iceinfo.ui.theme.DBRot
+import com.nruge.iceinfo.ui.theme.ICEInfoTheme
 import com.nruge.iceinfo.util.getIceClass
 import com.nruge.iceinfo.util.getIceDrawable
 
@@ -57,10 +61,10 @@ fun TrainHeader(status: TrainStatus) {
     {
         Row(
             modifier = Modifier
-                .height(70.dp)
+                .height(50.dp)
                 .wrapContentWidth(unbounded = true, align = Alignment.Start)
                 .align(Alignment.CenterStart)
-                .offset(x = (trackOffset - 17).dp, y = (-55).dp)
+                .offset(x = (trackOffset - 17).dp, y = (-45).dp)
                 .zIndex(1f)
                 .onGloballyPositioned { coords ->
                     trackWidthPx = coords.size.width / 5f
@@ -72,7 +76,7 @@ fun TrainHeader(status: TrainStatus) {
                     contentDescription = null,
                     contentScale = ContentScale.FillHeight,
                     modifier = Modifier
-                        .height(70.dp)
+                        .height(50.dp)
                         .wrapContentWidth(unbounded = true)
                 )
             }
@@ -84,19 +88,19 @@ fun TrainHeader(status: TrainStatus) {
             alignment = Alignment.CenterStart,
             contentScale = ContentScale.FillHeight,
             modifier = Modifier
-                .height(63.dp)
+                .height(44.dp)
                 .wrapContentWidth(unbounded = true, align = Alignment.Start)
                 .align(Alignment.CenterStart)
-                .offset(x = (-250).dp, y = (-54).dp)
+                .offset(x = (-150).dp, y = (-44).dp)
                 .zIndex(2f)
                 .graphicsLayer { clip = false }
         )
 
-        Card(
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 50.dp),
-            colors = CardDefaults.cardColors(
+            colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             )
         ) {
@@ -113,7 +117,7 @@ fun TrainHeader(status: TrainStatus) {
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = DBRot
                     )
                     Text(
                         text = getIceClass(status.tzn),
@@ -125,9 +129,17 @@ fun TrainHeader(status: TrainStatus) {
                     text = "${status.speed} km/h",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = DBRot
                 )
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TrainHeaderPreview() {
+    ICEInfoTheme {
+        TrainHeader(status = sampleTrainStatus)
     }
 }

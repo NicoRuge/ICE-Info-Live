@@ -12,7 +12,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.nruge.iceinfo.R
+import com.nruge.iceinfo.sampleTrainStatus
 import com.nruge.iceinfo.model.TrainStatus
 import com.nruge.iceinfo.ui.theme.*
 
@@ -69,9 +71,9 @@ fun ConnectivityRow(status: TrainStatus, isDarkTheme: Boolean) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Card(
+        ElevatedCard(
             modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(
+            colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer
             )
         ) {
@@ -92,11 +94,11 @@ fun ConnectivityRow(status: TrainStatus, isDarkTheme: Boolean) {
                 )
             }
         }
-        Card(
+        ElevatedCard(
             modifier = Modifier
                 .weight(1f)
                 .height(IntrinsicSize.Min),
-            colors = CardDefaults.cardColors(
+            colors = CardDefaults.elevatedCardColors(
                 containerColor = colors.container
             )
         ) {
@@ -111,10 +113,10 @@ fun ConnectivityRow(status: TrainStatus, isDarkTheme: Boolean) {
                         if (nextColors != null) {
                             Modifier.drawBehind {
                                 val path = Path().apply {
-                                    moveTo(size.width * 0.6f, 0f)
+                                    moveTo(size.width * 0.5f, 0f)
                                     lineTo(size.width, 0f)
                                     lineTo(size.width, size.height)
-                                    lineTo(size.width * 0.4f, size.height)
+                                    lineTo(size.width * 0.6f, size.height)
                                     close()
                                 }
                                 drawPath(path, color = nextColors.container)
@@ -166,6 +168,44 @@ fun ConnectivityRow(status: TrainStatus, isDarkTheme: Boolean) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ConnectivityRowPreview() {
+    ICEInfoTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ConnectivityRow(status = sampleTrainStatus, isDarkTheme = false)
+                ConnectivityRow(
+                    status = sampleTrainStatus.copy(
+                        connectivity = "WEAK",
+                        nextConnectivity = "NO_CONNECTION",
+                        connectivityRemainingSeconds = 300
+                    ),
+                    isDarkTheme = false
+                )
+                ConnectivityRow(
+                    status = sampleTrainStatus.copy(
+                        connectivity = "NO_CONNECTION",
+                        nextConnectivity = "STRONG",
+                        connectivityRemainingSeconds = 120
+                    ),
+                    isDarkTheme = false
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun ConnectivityRowDarkPreview() {
+    ICEInfoTheme(darkTheme = true) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            ConnectivityRow(status = sampleTrainStatus, isDarkTheme = true)
         }
     }
 }

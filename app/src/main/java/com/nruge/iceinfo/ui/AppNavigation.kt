@@ -26,6 +26,7 @@ fun AppNavigation(
     isDarkTheme: Boolean,
     isMockMode: Boolean,
     demoSpeed: Int,
+    showDemoSpeed: Boolean,
     onDemoSpeedChange: (Int) -> Unit,
     onTargetStopChange: (String?) -> Unit
 ) {
@@ -40,6 +41,7 @@ fun AppNavigation(
                 isDarkTheme = isDarkTheme,
                 isMockMode = isMockMode,
                 demoSpeed = demoSpeed,
+                showDemoSpeed = showDemoSpeed,
                 onDemoSpeedChange = onDemoSpeedChange,
                 onTargetStopChange = onTargetStopChange
             )

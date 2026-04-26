@@ -15,8 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.edit
@@ -33,6 +36,7 @@ import com.nruge.iceinfo.ui.InfoDialog
 import com.nruge.iceinfo.ui.OnboardingDialog
 import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.MainViewModel
+import com.nruge.iceinfo.ui.SettingsSheet
 import com.nruge.iceinfo.ui.components.NoWifiScreen
 import com.nruge.iceinfo.ui.theme.ICEInfoTheme
 import com.nruge.iceinfo.util.isWIFIonICE as checkWIFIonICE
@@ -93,8 +97,10 @@ class MainActivity : ComponentActivity() {
                     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
                 }
 
-                var serviceRunning by remember { mutableStateOf(false) }
+                val serviceRunning by IceNotificationService.isRunning.collectAsStateWithLifecycle()
                 var showInfo by remember { mutableStateOf(false) }
+                var showSettings by remember { mutableStateOf(false) }
+                var showDemoSpeed by remember { mutableStateOf(false) }
                 
                 val prefs = remember { context.getSharedPreferences("iceinfo_prefs", MODE_PRIVATE) }
                 var showOnboarding by remember { 
@@ -107,8 +113,10 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
+                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
                 Scaffold(
+                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     containerColor = MaterialTheme.colorScheme.background,
                     topBar = {
                         AppTopBar(
@@ -117,8 +125,10 @@ class MainActivity : ComponentActivity() {
                             serviceRunning = serviceRunning,
                             onToggleService = {
                                 if (serviceRunning) {
-                                    stopService(Intent(context, IceNotificationService::class.java))
-                                    serviceRunning = false
+                                    val stopIntent = Intent(context, IceNotificationService::class.java).apply {
+                                        action = IceNotificationService.ACTION_STOP
+                                    }
+                                    context.startService(stopIntent)
                                 } else {
                                     if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                                         == PackageManager.PERMISSION_GRANTED) {
@@ -131,7 +141,6 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                         context.startForegroundService(intent)
-                                        serviceRunning = true
                                     } else {
                                         requestPermissionLauncher.launch(
                                             android.Manifest.permission.POST_NOTIFICATIONS
@@ -140,8 +149,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onExitDemo = { viewModel.setMockMode(false) },
-                            onThemeChange = { appTheme = it },
-                            onShowInfo = { showInfo = true }
+                            onShowSettings = { showSettings = true },
+                            onShowInfo = { showInfo = true },
+                            scrollBehavior = scrollBehavior
                         )
                     },
                     bottomBar = {
@@ -178,6 +188,7 @@ class MainActivity : ComponentActivity() {
                             isDarkTheme = isDark,
                             isMockMode = isMockMode,
                             demoSpeed = demoSpeed,
+                            showDemoSpeed = showDemoSpeed,
                             onDemoSpeedChange = { 
                                 viewModel.setDemoSpeed(it)
                                 if (serviceRunning && isMockMode) {
@@ -194,6 +205,17 @@ class MainActivity : ComponentActivity() {
 
                 if (showInfo) {
                     InfoDialog(onDismiss = { showInfo = false })
+                }
+
+                if (showSettings) {
+                    SettingsSheet(
+                        appTheme = appTheme,
+                        onThemeChange = { appTheme = it },
+                        isMockMode = isMockMode,
+                        showDemoSpeed = showDemoSpeed,
+                        onToggleDemoSpeed = { showDemoSpeed = it },
+                        onDismiss = { showSettings = false }
+                    )
                 }
 
                 if (showOnboarding) {

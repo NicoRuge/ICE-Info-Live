@@ -22,6 +22,12 @@ val DBBlau = Color(0xFF0076B6)
 // Für Fehlerzustände
 val DBRotHell = Color(0xFFFFDDE0)
 
+// Neutraler Secondary-Container für Light Mode (distinkt von primaryContainer/Rot)
+val DBGrauContainer = Color(0xFFE1E5EA)
+
+// Brand-Akzente für Widget/Statusanzeigen
+val DBGelb = Color(0xFFFFEB3B)
+
 // Dark Mode spezifische Farben
 val DBDarkPrimaryContainer = Color(0xFF3A1A1D)
 val DBDarkOnPrimaryContainer = Color(0xFFFFB3B8)
@@ -32,6 +38,8 @@ val DBDarkTertiary = Color(0xFF63B3E6)
 val DBDarkTertiaryContainer = Color(0xFF1A3A52)
 val DBDarkOnTertiaryContainer = Color(0xFFB3D9F2)
 val DBDarkError = Color(0xFFFF6B6B)
+val DBDarkErrorContainer = Color(0xFF5A1A1F)
+val DBDarkOnErrorContainer = Color(0xFFFFB4AB)
 val DBDarkBackground = DBDunkelblau
 val DBDarkOnBackground = Color(0xFFE8EBEE)
 val DBDarkSurface = Color(0xFF1E2433)

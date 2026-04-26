@@ -3,11 +3,15 @@ package com.nruge.iceinfo.ui.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Train
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,18 +32,24 @@ import com.nruge.iceinfo.samplePois
 
 @Composable
 fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
-    val dotColor = when {
-        stop.isNext -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.outline
-    }
-    val lineColor = if (stop.passed)
-        MaterialTheme.colorScheme.primary
+    val isPassed = stop.passed
+    val isNext = stop.isNext
+    val isDelayed = stop.delayMinutes > 0
+
+    val travelledLine = MaterialTheme.colorScheme.primary
+    val pendingLine = MaterialTheme.colorScheme.outlineVariant
+
+    val rowBackground = if (isNext)
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
     else
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-    val textColor = when {
-        stop.isNext -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        Color.Transparent
+
+    val nameColor = when {
+        isPassed -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+        isNext -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
     }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -47,72 +57,122 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean) {
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(24.dp)
+            modifier = Modifier.width(28.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .weight(1f)
-                    .background(if (isFirst) Color.Transparent else lineColor)
-            )
-            Box(
-                modifier = Modifier
-                    .size(if (stop.isNext) 14.dp else 10.dp)
-                    .clip(CircleShape)
-                    .background(dotColor)
-            )
             Box(
                 modifier = Modifier
                     .width(2.dp)
                     .weight(1f)
                     .background(
-                        if (isLast) Color.Transparent
-                        else if (stop.passed) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        when {
+                            isFirst -> Color.Transparent
+                            isPassed || isNext -> travelledLine
+                            else -> pendingLine
+                        }
+                    )
+            )
+            when {
+                isNext -> Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Train,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+                isPassed -> Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(travelledLine)
+                )
+                else -> Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .weight(1f)
+                    .background(
+                        when {
+                            isLast -> Color.Transparent
+                            isPassed -> travelledLine
+                            else -> pendingLine
+                        }
                     )
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(rowBackground)
+                .padding(
+                    vertical = if (isNext) 12.dp else 8.dp,
+                    horizontal = 10.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stop.name,
-                color = textColor,
-                fontWeight = if (stop.isNext) FontWeight.Bold else FontWeight.Normal,
-                style = if (stop.isNext) MaterialTheme.typography.bodyLarge
-                else MaterialTheme.typography.bodyMedium,
-                textDecoration = if (stop.passed) TextDecoration.LineThrough else TextDecoration.None,
-                modifier = Modifier.weight(1f)
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stop.name,
+                    color = nameColor,
+                    style = if (isNext) MaterialTheme.typography.titleMedium
+                            else MaterialTheme.typography.bodyMedium,
+                    fontWeight = when {
+                        isNext -> FontWeight.Bold
+                        isPassed -> FontWeight.Normal
+                        else -> FontWeight.Medium
+                    }
+                )
                 if (stop.track.isNotEmpty()) {
                     Text(
-                        text = "Gl.${stop.track}",
-                        color = textColor.copy(alpha = 0.6f),
+                        text = "Gleis ${stop.track}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            .copy(alpha = if (isPassed) 0.5f else 1f),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                Text(
-                    text = stop.scheduledArrival,
-                    color = textColor,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (stop.isNext) FontWeight.SemiBold else FontWeight.Normal
-                )
-                if (!stop.passed) {
-                    DelayBadge(
-                        delayMinutes = stop.delayMinutes,
-                        size = DelayBadgeSize.SMALL,
-                        showUnit = false
+            }
+
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                if (isDelayed && !isPassed) {
+                    Text(
+                        text = stop.scheduledArrival,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                    Text(
+                        text = stop.actualArrival.ifEmpty { stop.scheduledArrival },
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Text(
+                        text = stop.scheduledArrival,
+                        color = nameColor,
+                        style = if (isNext) MaterialTheme.typography.titleSmall
+                                else MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isNext) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
@@ -134,7 +194,7 @@ fun StopsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (status.stops.isNotEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -171,7 +231,7 @@ fun StopsScreen(
 fun PoisCard(status: TrainStatus, pois: List<PoiItem>) {
     val context = LocalContext.current
     val displayPois = if (status.isConnected && pois.isNotEmpty()) pois else samplePois
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

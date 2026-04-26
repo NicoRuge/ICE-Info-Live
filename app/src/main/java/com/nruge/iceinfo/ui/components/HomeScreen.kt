@@ -28,6 +28,7 @@ fun HomeScreen(
     isDarkTheme: Boolean = false,
     isMockMode: Boolean = false,
     demoSpeed: Int = 114,
+    showDemoSpeed: Boolean = true,
     onDemoSpeedChange: (Int) -> Unit = {},
     onTargetStopChange: (String?) -> Unit = {}
 ) {
@@ -40,24 +41,21 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(modifier = Modifier.height(10.dp))
         TrainHeader(status = status)
 
-        if (isMockMode) {
-            DemoSpeedCard(demoSpeed = demoSpeed, onDemoSpeedChange = onDemoSpeedChange)
-        }
         StopSelectionCard(
             status = status,
             onTargetStopChange = onTargetStopChange
         )
         TravelSummaryCard(status = status)
 
-
-
         ConnectivityRow(status = status, isDarkTheme = isDarkTheme)
 
         if (status.delayReason.isNotEmpty()) {
             DelayReasonCard(reason = status.delayReason)
+        }
+        if (isMockMode && showDemoSpeed) {
+            DemoSpeedCard(demoSpeed = demoSpeed, onDemoSpeedChange = onDemoSpeedChange)
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
@@ -73,52 +71,88 @@ private fun StopSelectionCard(
     val stops = status.stops.filter { !it.passed }
     val currentTarget = stops.find { it.evaNr == status.targetStopEva }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+        )
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = "Dein Ausstieg",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
-            
+
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = currentTarget?.name ?: "Kein Ausstieg gewählt",
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                Surface(
                     modifier = Modifier
-                        .menuAnchor()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    leadingIcon = { Icon(Icons.Default.Train, null) }
-                )
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.Train, contentDescription = null)
+                        Text(
+                            text = currentTarget?.name ?: "Kein Ausstieg gewählt",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    }
+                }
 
                 ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    onDismissRequest = { expanded = false },
+                    shape = MaterialTheme.shapes.large
                 ) {
                     DropdownMenuItem(
                         text = { Text("Kein Ausstieg gewählt") },
+                        leadingIcon = {
+                            if (currentTarget == null) {
+                                Icon(Icons.Default.Check, contentDescription = null)
+                            }
+                        },
                         onClick = {
                             onTargetStopChange(null)
                             expanded = false
                         }
                     )
                     stops.forEach { stop ->
+                        val isSelected = stop.evaNr == status.targetStopEva
                         DropdownMenuItem(
-                            text = { 
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            text = {
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Text(stop.name)
-                                    Text(stop.scheduledArrival, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        stop.scheduledArrival,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            },
+                            leadingIcon = {
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = null)
                                 }
                             },
                             onClick = {
@@ -140,7 +174,11 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize()
+            .animateContentSize(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -158,7 +196,7 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null,
                         modifier = Modifier.padding(end = 8.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
                         text = stringResource(R.string.demo_speed_label),
@@ -170,7 +208,7 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
                     text = "$demoSpeed km/h",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
 
@@ -179,7 +217,15 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
                     value = demoSpeed.toFloat(),
                     onValueChange = { onDemoSpeedChange(it.toInt()) },
                     valueRange = 0f..300f,
-                    modifier = Modifier.fillMaxWidth()
+                    steps = 5,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        activeTrackColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        inactiveTrackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.24f),
+                        activeTickColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        inactiveTickColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.4f)
+                    )
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -187,15 +233,15 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
                 ) {
                     Text(
                         "0 km/h", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                     Text(
                         "150 km/h", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                     Text(
                         "300 km/h", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -203,7 +249,7 @@ private fun DemoSpeedCard(demoSpeed: Int, onDemoSpeedChange: (Int) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Preview(showBackground = true)
 @Composable
 fun FullAppPreview() {
@@ -219,12 +265,59 @@ fun FullAppPreview() {
             },
             bottomBar = {
                 NavigationBar {
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = {},
-                        icon = { Icon(Icons.Default.Notifications, null) },
-                        label = { Text("Notification") }
-                    )
+                    var expanded by remember { mutableStateOf(false) }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SplitButtonLayout(
+                            leadingButton = {
+                                SplitButtonDefaults.LeadingButton(
+                                    onClick = { /* Notification action */ }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Notifications,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SplitButtonDefaults.LeadingIconSize)
+                                    )
+                                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                                    Text("Benachrichtigung")
+                                }
+                            },
+                            trailingButton = {
+                                SplitButtonDefaults.TrailingButton(
+                                    checked = expanded,
+                                    onCheckedChange = { expanded = it }
+                                ) {
+                                    Icon(
+                                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Mehr Optionen",
+                                        modifier = Modifier.size(SplitButtonDefaults.TrailingIconSize)
+                                    )
+                                }
+                            }
+                        )
+
+                        if (expanded) {
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Option 1") },
+                                    onClick = { expanded = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Option 2") },
+                                    onClick = { expanded = false }
+                                )
+                            }
+                        }
+                    }
+
                     NavigationBarItem(
                         selected = false,
                         onClick = {},

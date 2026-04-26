@@ -14,7 +14,7 @@ private val DBLightColorScheme = lightColorScheme(
 
     secondary = DBMittelgrau,
     onSecondary = DBWeiss,
-    secondaryContainer = DBRotHell,
+    secondaryContainer = DBGrauContainer,
     onSecondaryContainer = DBDunkelgrau,
 
     tertiary = DBBlau,
@@ -57,8 +57,8 @@ private val DBDarkColorScheme = darkColorScheme(
 
     error = DBDarkError,
     onError = DBDunkelblau,
-    errorContainer = DBDarkPrimaryContainer,
-    onErrorContainer = DBDarkOnPrimaryContainer,
+    errorContainer = DBDarkErrorContainer,
+    onErrorContainer = DBDarkOnErrorContainer,
 
     background = DBDarkBackground,
     onBackground = DBDarkOnBackground,

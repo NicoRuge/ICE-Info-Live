@@ -1,17 +1,21 @@
 package com.nruge.iceinfo.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Train
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.nruge.iceinfo.R
 
 @Composable
@@ -21,61 +25,51 @@ fun InfoDialog(onDismiss: () -> Unit) {
         icon = { Icon(Icons.Default.Train, contentDescription = null) },
         title = { Text(stringResource(R.string.app_title), fontWeight = FontWeight.Bold) },
         text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.info_version),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Info, null) },
+                    headlineContent = { Text(stringResource(R.string.info_version)) }
                 )
                 HorizontalDivider()
-                Text(
-                    text = stringResource(R.string.info_description),
-                    style = MaterialTheme.typography.bodyMedium
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.info_description)) }
                 )
                 HorizontalDivider()
-                Text(
-                    text = stringResource(R.string.info_privacy_title),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Text(stringResource(R.string.info_privacy_text))
-                HorizontalDivider()
-                Text(
-                    text = stringResource(R.string.info_api_title),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Text(
-                    text = stringResource(R.string.info_api_url),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Lock, null) },
+                    overlineContent = { Text(stringResource(R.string.info_privacy_title)) },
+                    headlineContent = { Text(stringResource(R.string.info_privacy_text)) }
                 )
                 HorizontalDivider()
-                Text(
-                    text = stringResource(R.string.info_built_with_title),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Text(
-                    text = stringResource(R.string.info_built_with_text),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Cloud, null) },
+                    overlineContent = { Text(stringResource(R.string.info_api_title)) },
+                    headlineContent = { Text(stringResource(R.string.info_api_url)) }
                 )
                 HorizontalDivider()
-                Text(
-                    text = stringResource(R.string.info_legal_title),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelLarge
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Code, null) },
+                    overlineContent = { Text(stringResource(R.string.info_built_with_title)) },
+                    headlineContent = { Text(stringResource(R.string.info_built_with_text)) }
                 )
-                Text(stringResource(R.string.info_legal_1))
-                Text(stringResource(R.string.info_legal_2))
-                Text(stringResource(R.string.info_legal_3))
-                Text(stringResource(R.string.info_legal_4))
                 HorizontalDivider()
-                Text("Für Jan und Marek")
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Gavel, null) },
+                    overlineContent = { Text(stringResource(R.string.info_legal_title)) },
+                    headlineContent = {
+                        Column {
+                            Text(stringResource(R.string.info_legal_1))
+                            Text(stringResource(R.string.info_legal_2))
+                            Text(stringResource(R.string.info_legal_3))
+                            Text(stringResource(R.string.info_legal_4))
+                        }
+                    }
+                )
+                HorizontalDivider()
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Favorite, null) },
+                    headlineContent = { Text("Für Jan und Marek") }
+                )
             }
         },
         confirmButton = {

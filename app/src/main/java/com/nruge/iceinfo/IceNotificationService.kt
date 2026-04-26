@@ -6,13 +6,16 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.graphics.*
+import android.graphics.Color
 import android.os.IBinder
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.nruge.iceinfo.model.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class IceNotificationService : Service() {
 
@@ -24,6 +27,9 @@ class IceNotificationService : Service() {
         const val ACTION_UPDATE_TARGET = "com.nruge.iceinfo.ACTION_UPDATE_TARGET"
         const val EXTRA_DEMO_SPEED = "extra_demo_speed"
         const val EXTRA_TARGET_EVA = "extra_target_eva"
+
+        private val _isRunning = MutableStateFlow(false)
+        val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -37,15 +43,23 @@ class IceNotificationService : Service() {
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
         targetStopEva = com.nruge.iceinfo.util.SettingsManager.getTargetStopEva(this)
+        _isRunning.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Always promote to foreground immediately to satisfy the 5s contract,
+        // even on ACTION_STOP — Android still expects startForeground() if the
+        // service was started via startForegroundService().
+        val initialStatus = buildCurrentStatus()
+        runCatching {
+            startForeground(NOTIFICATION_ID, buildNotification(initialStatus))
+        }.onFailure { Log.e("IceService", "startForeground failed: ${it.message}") }
+
         if (intent?.action == ACTION_STOP) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            stopSelfCleanly()
             return START_NOT_STICKY
         }
-        
+
         val newTargetEva = intent?.getStringExtra(EXTRA_TARGET_EVA)
         if (newTargetEva != null) {
             targetStopEva = newTargetEva
@@ -57,21 +71,15 @@ class IceNotificationService : Service() {
             currentDemoSpeed = demoSpeed
             Log.d("IceService", "Demo speed updated: $currentDemoSpeed")
         }
-        
-        val status = sampleTrainStatus.let { 
-            if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it 
-        }.copy(targetStopEva = targetStopEva)
-        
+
+        val status = buildCurrentStatus()
         val targetStop = status.stops.find { it.evaNr == targetStopEva }
         com.nruge.iceinfo.widget.WidgetUpdater.update(
-            this, 
-            status, 
-            currentDemoSpeed != -1, 
+            this,
+            status,
+            currentDemoSpeed != -1,
             targetStop?.name
         )
-        
-        // Only show/update notification if we are already in foreground or explicitly starting
-        // ACTION_UPDATE_TARGET should only update if the service is already "alive"
         notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
         startPolling(currentDemoSpeed)
         return START_STICKY
@@ -81,8 +89,21 @@ class IceNotificationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        pollingJob?.cancel()
         serviceScope.cancel()
+        _isRunning.value = false
     }
+
+    private fun stopSelfCleanly() {
+        pollingJob?.cancel()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun buildCurrentStatus(): TrainStatus =
+        sampleTrainStatus
+            .let { if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it }
+            .copy(targetStopEva = targetStopEva)
 
     private fun startPolling(demoSpeed: Int = -1) {
         this.currentDemoSpeed = demoSpeed
@@ -138,44 +159,71 @@ class IceNotificationService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        val targetStop = status.stops.find { it.evaNr == targetStopEva } ?: status.stops.find { it.isNext }
-        
-        val displayStopName = targetStop?.name ?: status.nextStop
-        val displayEta = targetStop?.scheduledArrival ?: status.eta
-        val displayTrack = targetStop?.track ?: status.track
-        val displayDelay = targetStop?.delayMinutes ?: status.delayMinutes
+        // Prefer user-selected target; fall back to next stop
+        val target = status.stops.find { it.evaNr == targetStopEva }
+            ?: status.stops.find { it.isNext }
 
-        val delayText = when {
-            displayDelay > 0 -> "+$displayDelay min"
-            else -> "pünktlich"
+        val finalDestination = status.stops.lastOrNull()
+
+        val displayStopName = target?.name ?: status.nextStop
+        val displayEta = target?.actualArrival?.takeIf { it.isNotEmpty() }
+            ?: target?.scheduledArrival
+            ?: status.eta
+        val displayTrack = target?.track ?: status.track
+        val displayDelay = target?.delayMinutes ?: status.delayMinutes
+
+        // Distance + ETA in minutes from current speed
+        val remainingMeters = ((target?.distanceFromStart ?: 0) - status.actualPosition).coerceAtLeast(0)
+        val remainingKm = remainingMeters / 1000
+        val remainingMin = if (status.speed > 0)
+            ((remainingMeters / 1000.0) / status.speed * 60.0).toInt()
+        else 0
+
+        val distanceLine = buildString {
+            if (remainingKm > 0) append("$remainingKm km")
+            if (remainingKm > 0 && remainingMin > 0) append(" · ")
+            if (remainingMin > 0) append("${remainingMin} min")
+            if (remainingKm == 0 && remainingMin == 0) append("Ankunft …")
         }
-        val trackText = if (displayTrack.isNotEmpty()) "Gleis $displayTrack" else ""
 
-        // Progress berechnen basierend auf dem Ziel
-        val progress = if (targetStop != null) {
-            val currentPos = status.actualPosition
-            val targetPos = targetStop.distanceFromStart
-            val prevStop = status.stops.takeWhile { it.evaNr != targetStop.evaNr }.lastOrNull { it.passed } 
-                ?: status.stops.firstOrNull()
-            
-            val startPos = prevStop?.distanceFromStart ?: 0
-            if (targetPos > startPos) {
-                ((currentPos - startPos).toFloat() / (targetPos - startPos)).coerceIn(0f, 1f)
-            } else 0f
-        } else 0f
+        // Progress: travelled fraction of total route to target (start-of-route → target)
+        val targetPos = target?.distanceFromStart ?: 0
+        val progressPercent = if (targetPos > 0)
+            ((status.actualPosition.toFloat() / targetPos) * 100f).toInt().coerceIn(0, 100)
+        else 0
+
+        val footerParts = buildList {
+            if (displayTrack.isNotEmpty()) add("Gleis $displayTrack")
+            if (finalDestination != null && finalDestination.evaNr != target?.evaNr) {
+                add("Ziel: ${finalDestination.name} ${finalDestination.scheduledArrival}")
+            }
+        }
 
         val remoteViews = RemoteViews(packageName, R.layout.notification_custom).apply {
-            setTextViewText(R.id.tv_speed, "${status.speed} km/h")
             setTextViewText(R.id.tv_train_info, "${status.trainType} ${status.trainNumber}")
-            setTextViewText(R.id.tv_next_stop, "→ $displayStopName")
-            setTextViewText(R.id.tv_eta, "Ankunft: $displayEta $trackText")
-            setTextViewText(R.id.tv_delay, delayText)
+            setTextViewText(R.id.tv_speed, "${status.speed} km/h")
+            setTextViewText(R.id.tv_label,
+                if (target?.evaNr == targetStopEva && targetStopEva != null) "DEIN AUSSTIEG"
+                else "NÄCHSTER HALT"
+            )
+            setTextViewText(R.id.tv_destination, displayStopName)
+            setTextViewText(R.id.tv_distance, distanceLine.ifEmpty { "—" })
+            setTextViewText(R.id.tv_eta, "an. $displayEta")
             if (displayDelay > 0) {
-                setTextColor(R.id.tv_delay, Color.RED)
+                setTextViewText(R.id.tv_delay, "+$displayDelay")
+                setTextColor(R.id.tv_delay, Color.parseColor("#D32F2F"))
+                setViewVisibility(R.id.tv_delay, android.view.View.VISIBLE)
             } else {
-                setTextColor(R.id.tv_delay, Color.parseColor("#388E3C"))
+                setTextViewText(R.id.tv_delay, "")
+                setViewVisibility(R.id.tv_delay, android.view.View.GONE)
             }
-            setImageViewBitmap(R.id.iv_tracks, createTrainTrackBitmap(progress))
+            setProgressBar(R.id.pb_progress, 100, progressPercent, false)
+            if (footerParts.isEmpty()) {
+                setViewVisibility(R.id.tv_footer, android.view.View.GONE)
+            } else {
+                setTextViewText(R.id.tv_footer, footerParts.joinToString(" · "))
+                setViewVisibility(R.id.tv_footer, android.view.View.VISIBLE)
+            }
         }
 
         val smallIcon = when {
@@ -185,58 +233,22 @@ class IceNotificationService : Service() {
             else -> R.drawable.ic_speed
         }
 
-        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(smallIcon)
             .setCustomContentView(remoteViews)
             .setCustomBigContentView(remoteViews)
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setSilent(false)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Beenden",
                 stopIntent
             )
-
-        return notificationBuilder.build()
-    }
-
-    private fun createTrainTrackBitmap(progress: Float): Bitmap {
-        val width = 800
-        val height = 100
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint().apply {
-            isAntiAlias = true
-            strokeWidth = 4f
-        }
-
-        // Tracks
-        paint.color = Color.LTGRAY
-        val trackY1 = height * 0.4f
-        val trackY2 = height * 0.6f
-        canvas.drawLine(0f, trackY1, width.toFloat(), trackY1, paint)
-        canvas.drawLine(0f, trackY2, width.toFloat(), trackY2, paint)
-
-        // Ties (Schwellen)
-        for (i in 0..width step 40) {
-            canvas.drawLine(i.toFloat(), trackY1 - 5, i.toFloat(), trackY2 + 5, paint)
-        }
-
-        // Train
-        paint.color = Color.RED
-        val trainWidth = 60f
-        val trainHeight = 20f
-        val trainX = (width - trainWidth) * progress
-        val trainY = (height - trainHeight) / 2f
-        canvas.drawRect(trainX, trainY, trainX + trainWidth, trainY + trainHeight, paint)
-
-        // Train Front (rounded)
-        canvas.drawCircle(trainX + trainWidth, trainY + trainHeight / 2, trainHeight / 2, paint)
-
-        return bitmap
+            .build()
     }
 }

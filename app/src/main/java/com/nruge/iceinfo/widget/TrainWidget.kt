@@ -2,7 +2,6 @@ package com.nruge.iceinfo.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -22,6 +21,12 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.nruge.iceinfo.MainActivity
+import com.nruge.iceinfo.ui.theme.DBGelb
+import com.nruge.iceinfo.ui.theme.DBGruen
+import com.nruge.iceinfo.ui.theme.DBRot
+import com.nruge.iceinfo.ui.theme.DBRotDark
+import com.nruge.iceinfo.ui.theme.DBWeiss
+import com.nruge.iceinfo.ui.theme.DBDunkelgrau
 
 class TrainWidget : GlanceAppWidget() {
 
@@ -54,7 +59,7 @@ class TrainWidget : GlanceAppWidget() {
         val delay = prefs[KEY_DELAY] ?: 0
         val isMockMode = prefs[KEY_MOCK_MODE] ?: false
 
-        val dbRed = Color(0xFFE3000F)
+        val brandRed = ColorProvider(DBRot)
         val bgColor = ColorProvider(com.nruge.iceinfo.R.color.widget_background)
         val textColor = ColorProvider(com.nruge.iceinfo.R.color.widget_text_primary)
         val grayText = ColorProvider(com.nruge.iceinfo.R.color.widget_text_secondary)
@@ -73,7 +78,7 @@ class TrainWidget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .height(4.dp)
-                    .background(ColorProvider(dbRed))
+                    .background(brandRed)
             ) {}
 
             Column(
@@ -110,7 +115,7 @@ class TrainWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         fontSize = 42.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ColorProvider(dbRed)
+                                        color = brandRed
                                     )
                                 )
                                 Spacer(GlanceModifier.width(2.dp))
@@ -119,7 +124,7 @@ class TrainWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ColorProvider(dbRed)
+                                        color = brandRed
                                     ),
                                     modifier = GlanceModifier.padding(bottom = 8.dp)
                                 )
@@ -130,7 +135,7 @@ class TrainWidget : GlanceAppWidget() {
                             Box(
                                 modifier = GlanceModifier
                                     .padding(top = 2.dp)
-                                    .background(ColorProvider(Color(0xFFFFEB3B))) // Yellow for demo
+                                    .background(ColorProvider(DBGelb))
                                     .cornerRadius(4.dp)
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
@@ -139,7 +144,7 @@ class TrainWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ColorProvider(Color.Black)
+                                        color = ColorProvider(DBDunkelgrau)
                                     )
                                 )
                             }
@@ -176,12 +181,12 @@ class TrainWidget : GlanceAppWidget() {
                             if (delay > 0) {
                                 Text(
                                     text = "+$delay min",
-                                    style = TextStyle(fontSize = 11.sp, color = ColorProvider(Color(0xFFD32F2F)), fontWeight = FontWeight.Bold)
+                                    style = TextStyle(fontSize = 11.sp, color = ColorProvider(DBRotDark), fontWeight = FontWeight.Bold)
                                 )
                             } else {
                                 Text(
                                     text = "pünktlich",
-                                    style = TextStyle(fontSize = 11.sp, color = ColorProvider(Color(0xFF388E3C)), fontWeight = FontWeight.Bold)
+                                    style = TextStyle(fontSize = 11.sp, color = ColorProvider(DBGruen), fontWeight = FontWeight.Bold)
                                 )
                             }
                         }
@@ -211,7 +216,7 @@ class TrainWidget : GlanceAppWidget() {
                         Box(
                             modifier = GlanceModifier
                                 .fillMaxWidth()
-                                .background(ColorProvider(Color(0xFF388E3C)))
+                                .background(ColorProvider(DBGruen))
                                 .cornerRadius(8.dp)
                                 .padding(vertical = 4.dp),
                             contentAlignment = Alignment.Center
@@ -221,7 +226,7 @@ class TrainWidget : GlanceAppWidget() {
                                 style = TextStyle(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ColorProvider(Color.White)
+                                    color = ColorProvider(DBWeiss)
                                 )
                             )
                         }
