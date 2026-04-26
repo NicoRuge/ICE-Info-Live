@@ -26,7 +26,8 @@ fun AppNavigation(
     isDarkTheme: Boolean,
     isMockMode: Boolean,
     demoSpeed: Int,
-    onDemoSpeedChange: (Int) -> Unit
+    onDemoSpeedChange: (Int) -> Unit,
+    onTargetStopChange: (String?) -> Unit
 ) {
     NavHost(
         navController = navController,
@@ -39,7 +40,8 @@ fun AppNavigation(
                 isDarkTheme = isDarkTheme,
                 isMockMode = isMockMode,
                 demoSpeed = demoSpeed,
-                onDemoSpeedChange = onDemoSpeedChange
+                onDemoSpeedChange = onDemoSpeedChange,
+                onTargetStopChange = onTargetStopChange
             )
         }
         composable(Screen.Stops.route) {

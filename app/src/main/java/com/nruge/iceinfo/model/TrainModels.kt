@@ -21,6 +21,8 @@ data class TrainStatus(
     val stops: List<TrainStop> = emptyList(),
     val wagonClass: String = "",
     val connectivity: String = "",
+    val nextConnectivity: String? = null,
+    val connectivityRemainingSeconds: Int? = null,
     val tzn: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
@@ -29,7 +31,8 @@ data class TrainStatus(
     val destinationEta: String = "",
     val destinationTrack: String = "",
     val destinationDelay: Int = 0,
-    val isConnected: Boolean = true
+    val isConnected: Boolean = true,
+    val targetStopEva: String? = null
 )
 
 @Serializable

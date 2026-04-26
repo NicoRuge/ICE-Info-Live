@@ -82,8 +82,7 @@ fun NoWifiScreen(
             }
             Text(
                 text = stringResource(R.string.no_wifi_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center
             )
             Text(
@@ -123,7 +122,7 @@ fun NoWifiScreen(
             ) {
                 Text(
                     text = stringResource(R.string.demo_mode),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
         }

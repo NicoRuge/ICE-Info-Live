@@ -4,10 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.TrainStatus
 import com.nruge.iceinfo.ui.theme.*
@@ -38,11 +42,17 @@ private fun connectivityColors(connectivity: String, isDark: Boolean): Connectiv
 
 @Composable
 private fun connectivityLabel(connectivity: String): String = when (connectivity) {
-    "STRONG" -> stringResource(R.string.connectivity_strong)
-    "WEAK" -> stringResource(R.string.connectivity_weak)
+    "STRONG", "HIGH" -> stringResource(R.string.connectivity_strong)
+    "MIDDLE", "WEAK" -> stringResource(R.string.connectivity_weak)
     "NO_INFO" -> stringResource(R.string.connectivity_no_info)
-    "NO_CONNECTION" -> stringResource(R.string.connectivity_none)
+    "NO_CONNECTION", "LOW" -> stringResource(R.string.connectivity_none)
     else -> "—"
+}
+
+private fun formatRemainingSeconds(seconds: Int?): String {
+    if (seconds == null || seconds <= 0) return ""
+    val minutes = seconds / 60
+    return if (minutes > 0) "~${minutes} min" else "<1 min"
 }
 
 @Composable
@@ -83,24 +93,78 @@ fun ConnectivityRow(status: TrainStatus, isDarkTheme: Boolean) {
             }
         }
         Card(
-            modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(containerColor = colors.container)
+            modifier = Modifier
+                .weight(1f)
+                .height(IntrinsicSize.Min),
+            colors = CardDefaults.cardColors(
+                containerColor = colors.container
+            )
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            val nextColors = if (status.nextConnectivity != null) {
+                connectivityColors(status.nextConnectivity, isDarkTheme)
+            } else null
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (nextColors != null) {
+                            Modifier.drawBehind {
+                                val path = Path().apply {
+                                    moveTo(size.width * 0.6f, 0f)
+                                    lineTo(size.width, 0f)
+                                    lineTo(size.width, size.height)
+                                    lineTo(size.width * 0.4f, size.height)
+                                    close()
+                                }
+                                drawPath(path, color = nextColors.container)
+                            }
+                        } else Modifier
+                    )
+                    .padding(16.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.wifi_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.content
-                )
-                Text(
-                    text = connectivityLabel(status.connectivity),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.content
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(R.string.wifi_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.content
+                        )
+                        if (status.nextConnectivity != null) {
+                            Text(
+                                text = "➔ ${connectivityLabel(status.nextConnectivity)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = nextColors?.content?.copy(alpha = 0.8f) ?: colors.content.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.Bottom
+                    ) {
+                        Text(
+                            text = connectivityLabel(status.connectivity),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.content
+                        )
+                        if (status.connectivityRemainingSeconds != null) {
+                            Text(
+                                text = "in ${formatRemainingSeconds(status.connectivityRemainingSeconds)}",
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    color = nextColors?.content?.copy(alpha = 0.7f) ?: colors.content.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
     }

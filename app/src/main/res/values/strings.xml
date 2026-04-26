@@ -80,4 +80,6 @@
     <string name="onboarding_feature_map">Karte: Verfolge deine aktuelle Position auf der Strecke.</string>
     <string name="onboarding_feature_demo">Demo-Modus: Teste alle Funktionen auch ohne WLAN im Zug.</string>
     <string name="onboarding_button">Los geht\'s!</string>
+    <string name="widget_description">Zeigt die aktuelle Zug-Geschwindigkeit und den nächsten Halt.</string>
+    <string name="widget_loading">Lade Zug-Daten…</string>
 </resources>

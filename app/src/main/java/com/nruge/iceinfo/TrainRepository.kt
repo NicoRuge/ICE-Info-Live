@@ -149,6 +149,8 @@ object TrainRepository {
             stops = stopList,
             wagonClass = status.wagonClass,
             connectivity = status.connectivity?.currentState ?: "",
+            nextConnectivity = status.connectivity?.nextState,
+            connectivityRemainingSeconds = status.connectivity?.remainingTimeSeconds,
             tzn = status.tzn,
             latitude = status.latitude,
             longitude = status.longitude,

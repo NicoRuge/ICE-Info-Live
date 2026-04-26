@@ -14,7 +14,9 @@ data class StatusResponse(
 
 @Serializable
 data class Connectivity(
-    val currentState: String = ""
+    val currentState: String = "",
+    val nextState: String? = null,
+    val remainingTimeSeconds: Int? = null
 )
 
 @Serializable

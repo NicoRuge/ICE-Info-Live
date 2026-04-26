@@ -21,7 +21,6 @@ class IceNotificationService : Service() {
         const val CHANNEL_ID = "ice_tracker_channel_v2"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "com.nruge.iceinfo.ACTION_STOP"
-        const val ACTION_SELECT_TARGET = "com.nruge.iceinfo.ACTION_SELECT_TARGET"
         const val ACTION_UPDATE_TARGET = "com.nruge.iceinfo.ACTION_UPDATE_TARGET"
         const val EXTRA_DEMO_SPEED = "extra_demo_speed"
         const val EXTRA_TARGET_EVA = "extra_target_eva"
@@ -37,6 +36,7 @@ class IceNotificationService : Service() {
         super.onCreate()
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
+        targetStopEva = com.nruge.iceinfo.util.SettingsManager.getTargetStopEva(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -49,6 +49,7 @@ class IceNotificationService : Service() {
         val newTargetEva = intent?.getStringExtra(EXTRA_TARGET_EVA)
         if (newTargetEva != null) {
             targetStopEva = newTargetEva
+            com.nruge.iceinfo.util.SettingsManager.setTargetStopEva(this, newTargetEva)
         }
 
         val demoSpeed = intent?.getIntExtra(EXTRA_DEMO_SPEED, -1) ?: -1
@@ -59,9 +60,19 @@ class IceNotificationService : Service() {
         
         val status = sampleTrainStatus.let { 
             if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it 
-        }
+        }.copy(targetStopEva = targetStopEva)
         
-        startForeground(NOTIFICATION_ID, buildNotification(status))
+        val targetStop = status.stops.find { it.evaNr == targetStopEva }
+        com.nruge.iceinfo.widget.WidgetUpdater.update(
+            this, 
+            status, 
+            currentDemoSpeed != -1, 
+            targetStop?.name
+        )
+        
+        // Only show/update notification if we are already in foreground or explicitly starting
+        // ACTION_UPDATE_TARGET should only update if the service is already "alive"
+        notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
         startPolling(currentDemoSpeed)
         return START_STICKY
     }
@@ -80,9 +91,19 @@ class IceNotificationService : Service() {
         pollingJob = serviceScope.launch {
             while (isActive) {
                 try {
-                    val status = TrainRepository.fetchTrainStatus().let {
-                        if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it
-                    }
+                    val status = if (currentDemoSpeed != -1) {
+                        sampleTrainStatus.copy(speed = currentDemoSpeed)
+                    } else {
+                        TrainRepository.fetchTrainStatus()
+                    }.copy(targetStopEva = targetStopEva)
+
+                    val targetStop = status.stops.find { it.evaNr == targetStopEva }
+                    com.nruge.iceinfo.widget.WidgetUpdater.update(
+                        this@IceNotificationService, 
+                        status, 
+                        currentDemoSpeed != -1, 
+                        targetStop?.name
+                    )
                     notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
                 } catch (e: Exception) {
                     Log.e("IceService", "Fehler: ${e.message}")
@@ -114,14 +135,6 @@ class IceNotificationService : Service() {
         val stopIntent = PendingIntent.getService(
             this, 0,
             Intent(this, IceNotificationService::class.java).apply { action = ACTION_STOP },
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        val selectTargetIntent = PendingIntent.getActivity(
-            this, 1,
-            Intent(this, MainActivity::class.java).apply { 
-                action = ACTION_SELECT_TARGET
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
             PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -182,11 +195,6 @@ class IceNotificationService : Service() {
             .setSilent(false)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .addAction(
-                android.R.drawable.ic_menu_directions,
-                "Ziel",
-                selectTargetIntent
-            )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Beenden",

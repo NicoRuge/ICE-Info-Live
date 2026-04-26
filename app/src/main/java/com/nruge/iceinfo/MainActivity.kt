@@ -16,6 +16,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.edit
@@ -24,7 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.nruge.iceinfo.model.AppTheme
+import com.nruge.iceinfo.model.*
 import com.nruge.iceinfo.ui.AppBottomBar
 import com.nruge.iceinfo.ui.AppNavigation
 import com.nruge.iceinfo.ui.AppTopBar
@@ -34,7 +35,7 @@ import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.MainViewModel
 import com.nruge.iceinfo.ui.components.NoWifiScreen
 import com.nruge.iceinfo.ui.theme.ICEInfoTheme
-import com.nruge.iceinfo.util.isWIFIonICE
+import com.nruge.iceinfo.util.isWIFIonICE as checkWIFIonICE
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -62,7 +63,14 @@ class MainActivity : ComponentActivity() {
             )
         )
         setContent {
-            var demoSpeed by remember { mutableIntStateOf(114) }
+            val viewModel: MainViewModel = viewModel()
+            val trainStatus: TrainStatus by viewModel.trainStatus.collectAsState()
+            val pois: List<PoiItem> by viewModel.pois.collectAsState()
+            val isMockMode: Boolean by viewModel.isMockMode.collectAsState()
+            val demoSpeed: Int by viewModel.demoSpeed.collectAsState()
+            val connections: List<ConnectingTrain> by viewModel.connections.collectAsState()
+            val isWIFIonICEStatus: Boolean by viewModel.isWIFIonICE.collectAsState()
+
             var appTheme by remember { mutableStateOf(AppTheme.SYSTEM) }
             val isDark = when (appTheme) {
                 AppTheme.LIGHT -> false
@@ -71,19 +79,12 @@ class MainActivity : ComponentActivity() {
             }
 
             ICEInfoTheme(darkTheme = isDark) {
-                val viewModel: MainViewModel = viewModel()
-                val trainStatus by viewModel.trainStatus.collectAsState()
-                val pois by viewModel.pois.collectAsState()
-                val isMockMode by viewModel.isMockMode.collectAsState()
-                val connections by viewModel.connections.collectAsState()
-                val isWIFIonICEStatus by viewModel.isWIFIonICE.collectAsState()
-
                 val view = LocalView.current
                 val context = LocalContext.current
 
                 LaunchedEffect(Unit) {
                     while (true) {
-                        viewModel.updateWifiStatus(isWIFIonICE(context))
+                        viewModel.updateWifiStatus(checkWIFIonICE(context))
                         delay(5000)
                     }
                 }
@@ -94,7 +95,6 @@ class MainActivity : ComponentActivity() {
 
                 var serviceRunning by remember { mutableStateOf(false) }
                 var showInfo by remember { mutableStateOf(false) }
-                var showStopSelection by remember { mutableStateOf(false) }
                 
                 val prefs = remember { context.getSharedPreferences("iceinfo_prefs", MODE_PRIVATE) }
                 var showOnboarding by remember { 
@@ -102,9 +102,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 LaunchedEffect(intent) {
-                    if (intent?.action == IceNotificationService.ACTION_SELECT_TARGET) {
-                        showStopSelection = true
-                    }
+                    // Action select target is now handled by dropdown in HomeScreen
                 }
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -124,7 +122,16 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                                         == PackageManager.PERMISSION_GRANTED) {
-                                        showStopSelection = true
+                                        val intent = Intent(context, IceNotificationService::class.java).apply {
+                                            if (isMockMode) {
+                                                putExtra(IceNotificationService.EXTRA_DEMO_SPEED, demoSpeed)
+                                            }
+                                            trainStatus.targetStopEva?.let {
+                                                putExtra(IceNotificationService.EXTRA_TARGET_EVA, it)
+                                            }
+                                        }
+                                        context.startForegroundService(intent)
+                                        serviceRunning = true
                                     } else {
                                         requestPermissionLauncher.launch(
                                             android.Manifest.permission.POST_NOTIFICATIONS
@@ -172,14 +179,15 @@ class MainActivity : ComponentActivity() {
                             isMockMode = isMockMode,
                             demoSpeed = demoSpeed,
                             onDemoSpeedChange = { 
-                                demoSpeed = it
+                                viewModel.setDemoSpeed(it)
                                 if (serviceRunning && isMockMode) {
                                     val intent = Intent(context, IceNotificationService::class.java).apply {
-                                        putExtra(IceNotificationService.EXTRA_DEMO_SPEED, demoSpeed)
+                                        putExtra(IceNotificationService.EXTRA_DEMO_SPEED, it)
                                     }
                                     context.startForegroundService(intent)
                                 }
-                            }
+                            },
+                            onTargetStopChange = { viewModel.setTargetStop(it) }
                         )
                     }
                 }
@@ -193,31 +201,6 @@ class MainActivity : ComponentActivity() {
                         prefs.edit { putBoolean("onboarding_shown", true) }
                         showOnboarding = false
                     })
-                }
-
-                if (showStopSelection) {
-                    StopSelectionDialog(
-                        stops = trainStatus.stops,
-                        onStopSelected = { stop ->
-                            val intent = Intent(context, IceNotificationService::class.java).apply {
-                                if (serviceRunning) {
-                                    action = IceNotificationService.ACTION_UPDATE_TARGET
-                                }
-                                putExtra(IceNotificationService.EXTRA_TARGET_EVA, stop.evaNr)
-                                if (isMockMode) {
-                                    putExtra(IceNotificationService.EXTRA_DEMO_SPEED, demoSpeed)
-                                }
-                            }
-                            if (serviceRunning) {
-                                context.startService(intent)
-                            } else {
-                                context.startForegroundService(intent)
-                                serviceRunning = true
-                            }
-                            showStopSelection = false
-                        },
-                        onDismiss = { showStopSelection = false }
-                    )
                 }
             }
         }
