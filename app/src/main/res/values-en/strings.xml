@@ -7,10 +7,14 @@
     <string name="demo_end">End demo</string>
     <string name="notifications_cd">Notification</string>
     <string name="menu_cd">Menu</string>
-    <string name="theme_system">System Standard</string>
-    <string name="theme_light">Light Theme</string>
-    <string name="theme_dark">Dark Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="menu_info">Infos</string>
+    <string name="menu_changelog">Changelog</string>
+    <string name="changelog_title">Changelog</string>
+    <string name="changelog_new_features">New features</string>
+    <string name="changelog_fixes">Fixes</string>
     <string name="no_wifi_title">No train WIFI found.</string>
     <string name="no_wifi_text">Connect to \"WIFIonICE\" and click on \"Connect\"</string>
     <string name="no_wifi_connect">🔄 Connect</string>
@@ -61,4 +65,6 @@
     <string name="onboarding_feature_map">Map: Track your current position on the route.</string>
     <string name="onboarding_feature_demo">Demo mode: Test all features even without Wi-Fi on the train.</string>
     <string name="onboarding_button">Let\'s go!</string>
+    <string name="widget_description">Shows the current train speed and the next stop.</string>
+    <string name="widget_loading">Loading train data...</string>
 </resources>

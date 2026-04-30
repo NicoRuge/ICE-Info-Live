@@ -10,10 +10,14 @@
     <string name="menu_cd">Menü</string>
 
     <!-- Theme Menu -->
-    <string name="theme_system">System Standard</string>
-    <string name="theme_light">Helles Theme</string>
-    <string name="theme_dark">Dunkles Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
     <string name="menu_info">Informationen</string>
+    <string name="menu_changelog">Änderungsprotokoll</string>
+    <string name="changelog_title">Änderungsprotokoll</string>
+    <string name="changelog_new_features">Neue Funktionen</string>
+    <string name="changelog_fixes">Fehlerbehebungen</string>
 
     <!-- No WiFi Screen -->
     <string name="no_wifi_title">Kein ICE WLAN gefunden</string>

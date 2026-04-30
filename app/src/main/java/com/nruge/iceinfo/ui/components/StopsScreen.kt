@@ -11,7 +11,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Forest
+import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Train
+import androidx.compose.material.icons.filled.Water
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -231,10 +237,11 @@ fun StopsScreen(
 fun PoisCard(status: TrainStatus, pois: List<PoiItem>) {
     val context = LocalContext.current
     val displayPois = if (status.isConnected && pois.isNotEmpty()) pois else samplePois
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -247,70 +254,87 @@ fun PoisCard(status: TrainStatus, pois: List<PoiItem>) {
                     fontWeight = FontWeight.Bold
                 )
                 if (!status.isConnected) {
-                    Text(
-                        text = stringResource(R.string.pois_demo),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontStyle = FontStyle.Italic
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = stringResource(R.string.pois_demo),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     )
                 }
             }
-            displayPois.forEachIndexed { index, poi ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val query = Uri.encode(poi.name)
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://www.google.com/search?q=$query")
-                            )
-                            context.startActivity(intent)
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    displayPois.forEachIndexed { index, poi ->
+                        val icon = when (poi.type) {
+                            "CITY" -> Icons.Default.LocationCity
+                            "RIVER" -> Icons.Default.Water
+                            "MOUNTAIN" -> Icons.Default.Terrain
+                            "LAKE" -> Icons.Default.Water
+                            "MONUMENT" -> Icons.Default.AccountBalance
+                            "FOREST" -> Icons.Default.Forest
+                            else -> Icons.Default.Place
                         }
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = when (poi.type) {
-                                "CITY" -> "🏙️"
-                                "RIVER" -> "🌊"
-                                "MOUNTAIN" -> "⛰️"
-                                "LAKE" -> "💧"
-                                "MONUMENT" -> "🏛️"
-                                else -> "📍"
-                            }
-                        )
-                        Column {
-                            Text(
-                                text = poi.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (poi.description.isNotEmpty()) {
-                                Text(
-                                    text = poi.description,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
+                        val distanceText = if (poi.distance < 1000) {
+                            "${poi.distance} m"
+                        } else {
+                            "${"%.1f".format(poi.distance / 1000.0)} km"
+                        }
+
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                val query = Uri.encode(poi.name)
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://www.google.com/search?q=$query")
+                                    )
                                 )
-                            }
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            overlineContent = {
+                                Text(poi.type.lowercase().replaceFirstChar { it.uppercase() })
+                            },
+                            headlineContent = {
+                                Text(poi.name, fontWeight = FontWeight.Medium)
+                            },
+                            supportingContent = if (poi.description.isNotEmpty()) {
+                                { Text(poi.description) }
+                            } else null,
+                            trailingContent = {
+                                AssistChip(
+                                    onClick = {},
+                                    enabled = false,
+                                    label = { Text(distanceText, style = MaterialTheme.typography.labelMedium) },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        disabledLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+
+                        if (index < displayPois.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            )
                         }
                     }
-                    Text(
-                        text = "${poi.distance / 1000} km",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                if (index < displayPois.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                    )
                 }
             }
         }

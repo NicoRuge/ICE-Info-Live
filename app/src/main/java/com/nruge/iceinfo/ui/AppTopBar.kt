@@ -28,6 +28,7 @@ fun AppTopBar(
     onExitDemo: () -> Unit,
     onShowSettings: () -> Unit,
     onShowInfo: () -> Unit,
+    onShowChangelog: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     TopAppBar(
@@ -114,6 +115,11 @@ fun AppTopBar(
                     text = { Text("Einstellungen") },
                     onClick = { onShowSettings(); menuExpanded = false },
                     leadingIcon = { Icon(Icons.Default.Settings, null) }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.menu_changelog)) },
+                    onClick = { onShowChangelog(); menuExpanded = false },
+                    leadingIcon = { Icon(Icons.Default.NewReleases, null) }
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.menu_info)) },

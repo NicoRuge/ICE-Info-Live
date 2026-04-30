@@ -9,59 +9,111 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import android.util.Log
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 object TrainRepository {
 
-    private const val STATUS_URL = "https://iceportal.de/api1/rs/status"
-    private const val TRIP_URL = "https://iceportal.de/api1/rs/tripInfo/trip"
-    private const val POI_URL = "https://iceportal.de/api1/rs/pois/all"
+    private const val API_PATH_STATUS = "/api1/rs/status"
+    private const val API_PATH_TRIP   = "/api1/rs/tripInfo/trip"
+    private const val API_PATH_POIS   = "/api1/rs/pois/map"
+    private const val API_PATH_CONN   = "/api1/rs/tripInfo/connection"
+
+    // Try HTTPS first; many older ICE portals also serve plain HTTP
+    private val hosts = listOf("https://iceportal.de", "http://iceportal.de")
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
 
     private val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                coerceInputValues = true
-            }, contentType = io.ktor.http.ContentType.Any)
+            json(json, contentType = io.ktor.http.ContentType.Any)
         }
         install(Logging) {
             level = LogLevel.INFO
         }
         install(HttpTimeout) {
-            requestTimeoutMillis = 2000
-            connectTimeoutMillis = 2000
+            requestTimeoutMillis = 5000
+            connectTimeoutMillis = 3000
+            socketTimeoutMillis  = 5000
         }
         defaultRequest {
             header("Accept", "application/json")
         }
-        // Redirects are handled by default in Ktor OkHttp engine
     }
 
-    suspend fun fetchPois(): List<PoiItem> = withContext(Dispatchers.IO) {
+    /** GET with automatic HTTP fallback if HTTPS fails. */
+    private suspend inline fun <reified T> getWithFallback(path: String): T {
+        var lastException: Exception? = null
+        for (host in hosts) {
+            try {
+                return client.get("$host$path").body()
+            } catch (e: Exception) {
+                Log.w("ICERepo", "GET $host$path failed: ${e.message}")
+                lastException = e
+            }
+        }
+        throw lastException!!
+    }
+
+    /** Raw text GET with automatic HTTP fallback. */
+    private suspend fun getRawWithFallback(path: String): String {
+        var lastException: Exception? = null
+        for (host in hosts) {
+            try {
+                return client.get("$host$path").bodyAsText()
+            } catch (e: Exception) {
+                Log.w("ICERepo", "GET $host$path failed: ${e.message}")
+                lastException = e
+            }
+        }
+        throw lastException!!
+    }
+
+    private val timeFormatter: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+
+    suspend fun fetchPois(lat: Double, lon: Double, radiusDeg: Double = 0.5): List<PoiItem> = withContext(Dispatchers.IO) {
+        if (lat == 0.0 && lon == 0.0) return@withContext emptyList()
+        val path = "$API_PATH_POIS/${lat - radiusDeg}/${lon - radiusDeg}/${lat + radiusDeg}/${lon + radiusDeg}"
         try {
-            val response: PoiResponse = client.get(POI_URL).body()
-            response.pois?.sortedBy { it.distance } ?: emptyList()
+            // The ICE portal returns either {"pois":[…]} or a bare array [… ] depending on firmware.
+            val raw = getRawWithFallback(path)
+            val element = json.parseToJsonElement(raw)
+            when (element) {
+                is JsonArray  -> json.decodeFromJsonElement<List<PoiItem>>(element)
+                is JsonObject -> {
+                    val inner = element["pois"] ?: return@withContext emptyList()
+                    json.decodeFromJsonElement<List<PoiItem>>(inner)
+                }
+                else -> emptyList()
+            }.sortedBy { it.distance }
         } catch (e: Exception) {
-            android.util.Log.e("POI Fehler", "Fehler: ${e.message}")
+            Log.e("ICERepo", "POI Fehler ($path): ${e.message}", e)
             emptyList()
         }
     }
 
     suspend fun fetchTrainStatus(): TrainStatus = withContext(Dispatchers.IO) {
         try {
-            val status: StatusResponse = client.get(STATUS_URL).body()
-            val tripResponse: TripResponse = client.get(TRIP_URL).body()
+            val status: StatusResponse = getWithFallback(API_PATH_STATUS)
+            val tripResponse: TripResponse = getWithFallback(API_PATH_TRIP)
             val trip = tripResponse.trip ?: return@withContext fallback()
-
             mapToTrainStatus(status, trip)
         } catch (e: Exception) {
-            android.util.Log.e("ICERepo", "Fehler: ${e.message}")
+            Log.e("ICERepo", "Status Fehler: ${e.message}", e)
             fallback()
         }
     }
@@ -166,9 +218,7 @@ object TrainRepository {
     suspend fun fetchConnections(evaNr: String): List<ConnectingTrain> = withContext(Dispatchers.IO) {
         try {
             if (evaNr.isEmpty()) return@withContext emptyList()
-            val response: ConnectionResponse = client.get(
-                "https://iceportal.de/api1/rs/tripInfo/connection/$evaNr"
-            ).body()
+            val response: ConnectionResponse = getWithFallback("$API_PATH_CONN/$evaNr")
             response.connections?.map { c ->
                 val scheduledMs = c.timetable?.scheduledDepartureTime ?: 0L
                 val actualMs = c.timetable?.actualDepartureTime ?: 0L
@@ -191,8 +241,7 @@ object TrainRepository {
 
     private fun formatTime(ms: Long): String {
         if (ms <= 0L) return ""
-        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-        return sdf.format(Date(ms))
+        return timeFormatter.format(Instant.ofEpochMilli(ms))
     }
 
     private fun fallback() = sampleTrainStatus.copy(isConnected = false)

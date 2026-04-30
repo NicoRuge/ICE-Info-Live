@@ -2,13 +2,8 @@ package com.nruge.iceinfo.util
 
 import com.nruge.iceinfo.R
 
-fun getIceDrawable(tzn: String): Int {
-    val number = tzn.removePrefix("ICE").toIntOrNull() ?: return R.drawable.ice
-    return when (number) {
-        in 701..899 -> R.drawable.ice
-        else -> R.drawable.ice
-    }
-}
+@Suppress("UNUSED_PARAMETER")
+fun getIceDrawable(tzn: String): Int = R.drawable.ice  // single drawable for all ICE types currently
 
 fun getIceClass(tzn: String): String {
     val number = tzn.removePrefix("ICE").toIntOrNull() ?: return ""

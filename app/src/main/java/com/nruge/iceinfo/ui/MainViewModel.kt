@@ -124,7 +124,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val status = TrainRepository.fetchTrainStatus()
             _trainStatus.value = status
-            _pois.value = TrainRepository.fetchPois()
+            _pois.value = TrainRepository.fetchPois(status.latitude, status.longitude)
             _isChecking.value = false
             if (status.isConnected) {
                 startPolling()
@@ -142,7 +142,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val currentTarget = SettingsManager.getTargetStopEva(getApplication())
                     val updatedStatus = status.copy(targetStopEva = currentTarget)
                     _trainStatus.value = updatedStatus
-                    _pois.value = TrainRepository.fetchPois()
+                    _pois.value = TrainRepository.fetchPois(status.latitude, status.longitude)
                     _connections.value = TrainRepository.fetchConnections(
                         status.nextStopEva
                     )

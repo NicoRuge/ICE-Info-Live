@@ -17,7 +17,9 @@ import com.nruge.iceinfo.util.formatRemainingTime
 fun TravelSummaryCard(status: TrainStatus) {
     val targetStop = status.stops.find { it.evaNr == status.targetStopEva }
     val displayDestination = targetStop?.name ?: status.destination
-    val displayEta = targetStop?.actualArrival ?: status.destinationEta
+    val displayEta = targetStop
+        ?.let { it.actualArrival.takeIf { t -> t.isNotEmpty() } ?: it.scheduledArrival }
+        ?: status.destinationEta
     val displayDelay = targetStop?.delayMinutes ?: status.destinationDelay
 
     // Calculate progress towards selection

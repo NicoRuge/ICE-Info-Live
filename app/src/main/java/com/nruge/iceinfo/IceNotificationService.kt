@@ -37,6 +37,13 @@ class IceNotificationService : Service() {
     private var pollingJob: Job? = null
     private var currentDemoSpeed: Int = -1
     private var targetStopEva: String? = null
+    private var lastKnownStatus: TrainStatus? = null
+
+    private val connectingStatus = TrainStatus(
+        trainType = "—", trainNumber = "—", speed = 0,
+        nextStop = "Verbinde…", destination = "", eta = "",
+        isConnected = false
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -100,10 +107,14 @@ class IceNotificationService : Service() {
         stopSelf()
     }
 
-    private fun buildCurrentStatus(): TrainStatus =
-        sampleTrainStatus
-            .let { if (currentDemoSpeed != -1) it.copy(speed = currentDemoSpeed) else it }
-            .copy(targetStopEva = targetStopEva)
+    private fun buildCurrentStatus(): TrainStatus {
+        val base = when {
+            currentDemoSpeed != -1 -> sampleTrainStatus.copy(speed = currentDemoSpeed, isConnected = true)
+            lastKnownStatus != null -> lastKnownStatus!!
+            else -> connectingStatus
+        }
+        return base.copy(targetStopEva = targetStopEva)
+    }
 
     private fun startPolling(demoSpeed: Int = -1) {
         this.currentDemoSpeed = demoSpeed
@@ -117,6 +128,7 @@ class IceNotificationService : Service() {
                     } else {
                         TrainRepository.fetchTrainStatus()
                     }.copy(targetStopEva = targetStopEva)
+                    lastKnownStatus = status
 
                     val targetStop = status.stops.find { it.evaNr == targetStopEva }
                     com.nruge.iceinfo.widget.WidgetUpdater.update(

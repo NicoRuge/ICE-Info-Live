@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -32,6 +31,7 @@ import com.nruge.iceinfo.model.*
 import com.nruge.iceinfo.ui.AppBottomBar
 import com.nruge.iceinfo.ui.AppNavigation
 import com.nruge.iceinfo.ui.AppTopBar
+import com.nruge.iceinfo.ui.ChangelogDialog
 import com.nruge.iceinfo.ui.InfoDialog
 import com.nruge.iceinfo.ui.OnboardingDialog
 import com.nruge.iceinfo.ui.StopSelectionDialog
@@ -99,12 +99,12 @@ class MainActivity : ComponentActivity() {
 
                 val serviceRunning by IceNotificationService.isRunning.collectAsStateWithLifecycle()
                 var showInfo by remember { mutableStateOf(false) }
+                var showChangelog by remember { mutableStateOf(false) }
                 var showSettings by remember { mutableStateOf(false) }
                 var showDemoSpeed by remember { mutableStateOf(false) }
                 
-                val prefs = remember { context.getSharedPreferences("iceinfo_prefs", MODE_PRIVATE) }
-                var showOnboarding by remember { 
-                    mutableStateOf(!prefs.getBoolean("onboarding_shown", false)) 
+                var showOnboarding by remember {
+                    mutableStateOf(!com.nruge.iceinfo.util.SettingsManager.isOnboardingShown(context))
                 }
 
                 LaunchedEffect(intent) {
@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
                             onExitDemo = { viewModel.setMockMode(false) },
                             onShowSettings = { showSettings = true },
                             onShowInfo = { showInfo = true },
+                            onShowChangelog = { showChangelog = true },
                             scrollBehavior = scrollBehavior
                         )
                     },
@@ -207,6 +208,10 @@ class MainActivity : ComponentActivity() {
                     InfoDialog(onDismiss = { showInfo = false })
                 }
 
+                if (showChangelog) {
+                    ChangelogDialog(onDismiss = { showChangelog = false })
+                }
+
                 if (showSettings) {
                     SettingsSheet(
                         appTheme = appTheme,
@@ -220,7 +225,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showOnboarding) {
                     OnboardingDialog(onDismiss = {
-                        prefs.edit { putBoolean("onboarding_shown", true) }
+                        com.nruge.iceinfo.util.SettingsManager.setOnboardingShown(context)
                         showOnboarding = false
                     })
                 }

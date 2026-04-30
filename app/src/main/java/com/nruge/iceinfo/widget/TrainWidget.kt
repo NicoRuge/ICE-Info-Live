@@ -33,13 +33,15 @@ class TrainWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     companion object {
-        val KEY_CONNECTED = booleanPreferencesKey("isConnected")
-        val KEY_TRAIN_NAME = stringPreferencesKey("trainName")
-        val KEY_SPEED = intPreferencesKey("speed")
-        val KEY_NEXT_STOP = stringPreferencesKey("nextStop")
-        val KEY_TARGET_STOP = stringPreferencesKey("targetStop")
-        val KEY_DELAY = intPreferencesKey("delay")
-        val KEY_MOCK_MODE = booleanPreferencesKey("isMockMode")
+        val KEY_CONNECTED       = booleanPreferencesKey("isConnected")
+        val KEY_TRAIN_NAME      = stringPreferencesKey("trainName")
+        val KEY_SPEED           = intPreferencesKey("speed")
+        val KEY_NEXT_STOP       = stringPreferencesKey("nextStop")
+        val KEY_NEXT_STOP_EVA   = stringPreferencesKey("nextStopEva")
+        val KEY_TARGET_STOP     = stringPreferencesKey("targetStop")
+        val KEY_TARGET_STOP_EVA = stringPreferencesKey("targetStopEva")
+        val KEY_DELAY           = intPreferencesKey("delay")
+        val KEY_MOCK_MODE       = booleanPreferencesKey("isMockMode")
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -51,13 +53,15 @@ class TrainWidget : GlanceAppWidget() {
 
     @Composable
     private fun TrainWidgetContent(prefs: androidx.datastore.preferences.core.Preferences) {
-        val isConnected = prefs[KEY_CONNECTED] ?: false
-        val trainName = prefs[KEY_TRAIN_NAME] ?: ""
-        val speed = prefs[KEY_SPEED] ?: 0
-        val nextStop = prefs[KEY_NEXT_STOP] ?: ""
-        val targetStop = prefs[KEY_TARGET_STOP] ?: ""
-        val delay = prefs[KEY_DELAY] ?: 0
-        val isMockMode = prefs[KEY_MOCK_MODE] ?: false
+        val isConnected    = prefs[KEY_CONNECTED] ?: false
+        val trainName      = prefs[KEY_TRAIN_NAME] ?: ""
+        val speed          = prefs[KEY_SPEED] ?: 0
+        val nextStop       = prefs[KEY_NEXT_STOP] ?: ""
+        val nextStopEva    = prefs[KEY_NEXT_STOP_EVA] ?: ""
+        val targetStop     = prefs[KEY_TARGET_STOP] ?: ""
+        val targetStopEva  = prefs[KEY_TARGET_STOP_EVA] ?: ""
+        val delay          = prefs[KEY_DELAY] ?: 0
+        val isMockMode     = prefs[KEY_MOCK_MODE] ?: false
 
         val brandRed = ColorProvider(DBRot)
         val bgColor = ColorProvider(com.nruge.iceinfo.R.color.widget_background)
@@ -211,7 +215,7 @@ class TrainWidget : GlanceAppWidget() {
                         }
                     }
 
-                    if (targetStop.isNotEmpty() && nextStop.equals(targetStop, ignoreCase = true)) {
+                    if (targetStopEva.isNotEmpty() && nextStopEva == targetStopEva) {
                         Spacer(GlanceModifier.height(8.dp))
                         Box(
                             modifier = GlanceModifier
