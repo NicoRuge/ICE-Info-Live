@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import coil.compose.AsyncImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -146,25 +147,16 @@ fun NoWifiScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Surface(
-                        onClick = { uriHandler.openUri("https://www.buymeacoffee.com/nicoruge") },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFFDD00)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(text = "☕", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                text = "Buy me a coffee",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black
-                            )
-                        }
-                    }
+                    AsyncImage(
+                        model = "https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png",
+                        contentDescription = "Buy me a coffee",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .height(40.dp)
+                            .aspectRatio(217f / 60f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { uriHandler.openUri("https://www.buymeacoffee.com/nicoruge") }
+                    )
 
                     Row(
                         horizontalArrangement = Arrangement.Center,
