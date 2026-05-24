@@ -141,34 +141,59 @@ fun NoWifiScreen(
                     onClick = onMockMode
                 )
 
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Nicos ICEinfo",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        painter = painterResource(R.drawable.ic_bluesky),
-                        contentDescription = "BlueSky",
-                        tint = Color.Gray,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable { uriHandler.openUri("https://bsky.app/profile/nico-ruge.de") }
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        painter = painterResource(R.drawable.ic_github),
-                        contentDescription = "GitHub",
-                        tint = Color.Gray,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable { uriHandler.openUri("https://github.com/nicoruge/ice-info-live") }
-                    )
+                    Surface(
+                        onClick = { uriHandler.openUri("https://www.buymeacoffee.com/nicoruge") },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFDD00)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = "☕", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = "Buy me a coffee",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Nicos ICEinfo",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_bluesky),
+                            contentDescription = "BlueSky",
+                            tint = Color.Gray,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable { uriHandler.openUri("https://bsky.app/profile/nico-ruge.de") }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_github),
+                            contentDescription = "GitHub",
+                            tint = Color.Gray,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable { uriHandler.openUri("https://github.com/nicoruge/ice-info-live") }
+                        )
+                    }
                 }
             }
         }
