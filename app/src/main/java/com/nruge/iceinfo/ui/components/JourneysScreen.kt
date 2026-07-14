@@ -1,5 +1,9 @@
 package com.nruge.iceinfo.ui.components
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -15,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.HistoryToggleOff
 import androidx.compose.material.icons.filled.Route
@@ -25,13 +31,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.LiveRecordingState
 import com.nruge.iceinfo.model.SavedJourney
 import com.nruge.iceinfo.util.GpxExporter
 import kotlinx.coroutines.delay
+import java.time.LocalDate
 
 @Composable
 fun JourneysScreen(
@@ -41,21 +50,58 @@ fun JourneysScreen(
     isRecording: Boolean = false,
     liveRecording: LiveRecordingState? = null,
     onStartRecording: () -> Unit = {},
+    onExportJourneys: (Uri, (Boolean) -> Unit) -> Unit = { _, _ -> },
+    onImportJourneys: (Uri, (Int) -> Unit) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) onExportJourneys(uri) { ok ->
+            Toast.makeText(
+                context,
+                context.getString(if (ok) R.string.journeys_export_done else R.string.journeys_export_failed),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) onImportJourneys(uri) { added ->
+            val message = when {
+                added < 0 -> context.getString(R.string.journeys_import_invalid)
+                added == 0 -> context.getString(R.string.journeys_import_none)
+                else -> context.resources.getQuantityString(R.plurals.journeys_imported, added, added)
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+    // JSON-Dateien werden je nach Quelle als text/* oder octet-stream gemeldet,
+    // deshalb keine Mime-Einschränkung im Picker.
+    val launchImport = { importLauncher.launch(arrayOf("*/*")) }
+    val launchExport = {
+        exportLauncher.launch("ICE-Info_Fahrten_${LocalDate.now()}.json")
+    }
+
     Box(
         modifier = modifier.fillMaxSize()
     ) {
         AnimatedVisibility(
-            visible = journeys.isEmpty(),
+            visible = journeys.isEmpty() && liveRecording == null,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            JourneysEmptyState(modifier = Modifier.fillMaxSize())
+            JourneysEmptyState(
+                onImport = launchImport,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         AnimatedVisibility(
-            visible = journeys.isNotEmpty(),
+            visible = journeys.isNotEmpty() || liveRecording != null,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
@@ -77,6 +123,34 @@ fun JourneysScreen(
                         journey = journey,
                         onDelete = { onDeleteJourney(journey.id) }
                     )
+                }
+                if (journeys.isNotEmpty()) {
+                    item(key = "export_import") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            TextButton(onClick = launchImport) {
+                                Icon(
+                                    imageVector = Icons.Default.FileDownload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.journeys_import))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            TextButton(onClick = launchExport) {
+                                Icon(
+                                    imageVector = Icons.Default.FileUpload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.journeys_export))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -101,7 +175,10 @@ fun JourneysScreen(
 }
 
 @Composable
-private fun JourneysEmptyState(modifier: Modifier = Modifier) {
+private fun JourneysEmptyState(
+    onImport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -126,6 +203,16 @@ private fun JourneysEmptyState(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = onImport) {
+            Icon(
+                imageVector = Icons.Default.FileDownload,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.journeys_import))
+        }
     }
 }
 

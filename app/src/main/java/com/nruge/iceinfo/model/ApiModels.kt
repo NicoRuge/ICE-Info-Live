@@ -46,7 +46,14 @@ data class ApiStop(
 @Serializable
 data class Station(
     val name: String = "",
-    val evaNr: String = ""
+    val evaNr: String = "",
+    val geocoordinates: Geocoordinates? = null
+)
+
+@Serializable
+data class Geocoordinates(
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
 )
 
 @Serializable
@@ -67,8 +74,13 @@ data class Timetable(
 
 @Serializable
 data class Track(
-    val actual: String = ""
-)
+    val actual: String = "",
+    val scheduled: String = ""
+) {
+    /** Gleis wurde geändert, wenn Soll- und Ist-Gleis beide vorhanden sind und sich unterscheiden. */
+    val changed: Boolean
+        get() = scheduled.isNotEmpty() && actual.isNotEmpty() && scheduled != actual
+}
 
 @Serializable
 data class DelayReason(
@@ -108,7 +120,9 @@ data class Coach(
     /** Ausstattungs-Merkmale des Wagens aus der DB Wagenreihungs-API.
      *  Bekannte Werte: ZONE_QUIET, ZONE_FAMILY, ZONE_PHONE,
      *  BIKE_SPACE, CABIN_INFANT, WHEELCHAIR_SPACE, SEATS_BAHN_COMFORT */
-    val amenities: Set<String> = emptySet()
+    val amenities: Set<String> = emptySet(),
+    /** Wagen ist gesperrt (API-Status != "OPEN", z.B. "CLOSED") – kein Einstieg möglich. */
+    val isClosed: Boolean = false
 )
 
 // ─── DB Wagenreihungs-API (bahn.de) ───────────────────────────────────────────
@@ -128,7 +142,10 @@ data class WagenreihungGroup(
 @Serializable
 data class WagenreihungVehicle(
     val wagonIdentificationNumber: Int = 0,
+    val vehicleID: String = "",
     val status: String = "OPEN",
+    /** FORWARDS/BACKWARDS relativ zur Fahrtrichtung — flippt an einem Wende-Halt. */
+    val orientation: String = "",
     val type: WagenreihungVehicleType = WagenreihungVehicleType(),
     val platformPosition: WagenreihungPlatformPosition = WagenreihungPlatformPosition(),
     val amenities: List<WagenreihungAmenity> = emptyList()

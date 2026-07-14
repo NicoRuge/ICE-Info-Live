@@ -76,6 +76,9 @@ object DepartureBoardRepository {
                     scheduledTime = displayFormatter.format(Instant.ofEpochMilli(plannedMs)),
                     delayMinutes = delayMin,
                     platform = d.platform ?: d.plannedPlatform.orEmpty(),
+                    platformChanged = !d.platform.isNullOrEmpty() &&
+                        !d.plannedPlatform.isNullOrEmpty() &&
+                        d.platform != d.plannedPlatform,
                     cancelled = d.cancelled == true
                 )
             }

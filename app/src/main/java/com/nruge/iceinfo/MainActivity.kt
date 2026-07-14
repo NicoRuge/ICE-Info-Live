@@ -16,12 +16,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WifiTetheringError
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -75,7 +90,6 @@ import com.nruge.iceinfo.ui.RecordJourneyDialog
 import com.nruge.iceinfo.ui.SettingsSheet
 import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.components.NoWifiScreen
-import com.nruge.iceinfo.ui.components.RecordingSplitButton
 
 import com.nruge.iceinfo.ui.theme.ICEInfoTheme
 import com.nruge.iceinfo.util.isWIFIonICE as checkWIFIonICE
@@ -225,6 +239,7 @@ class MainActivity : ComponentActivity() {
             val menuItems by viewModel.menuCategories.collectAsStateWithLifecycle()
             val isMenuLoading by viewModel.isMenuLoading.collectAsStateWithLifecycle()
             val coaches by viewModel.coaches.collectAsStateWithLifecycle()
+            val coachStopName by viewModel.coachStopName.collectAsStateWithLifecycle()
             val selectedCoach by viewModel.selectedCoach.collectAsStateWithLifecycle()
             val seatNumber by viewModel.seatNumber.collectAsStateWithLifecycle()
 
@@ -249,11 +264,16 @@ class MainActivity : ComponentActivity() {
                 val lifecycleOwner = LocalLifecycleOwner.current
                 LaunchedEffect(lifecycleOwner) {
                     lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        // App kommt in Vordergrund: sofort pollen und WiFi prüfen
+                        viewModel.onForeground()
+                        viewModel.updateWifiStatus(checkWIFIonICE(context))
                         while (true) {
-                            viewModel.updateWifiStatus(checkWIFIonICE(context))
                             delay(5000)
+                            viewModel.updateWifiStatus(checkWIFIonICE(context))
                         }
                     }
+                    // App geht in Hintergrund (Block wurde gecancelt)
+                    viewModel.onBackground()
                 }
                 SideEffect {
                     val window = (view.context as Activity).window
@@ -307,6 +327,14 @@ class MainActivity : ComponentActivity() {
                 var demoBackProgress by remember { mutableFloatStateOf(0f) }
                 var demoBackInProgress by remember { mutableStateOf(false) }
 
+                // NoWifiScreen auch zeigen, wenn WIFIonICE zwar verbunden ist, aber das
+                // Bordportal nichts liefert (dann mit entsprechender Meldung). Während einer
+                // laufenden Aufzeichnung bleibt die App in dem Fall sichtbar.
+                val noWifiOverlayVisible = !trainStatus.isConnected && !isMockMode
+                    && !isReconnecting
+                    && !(isWIFIonICEStatus && isRecording)
+                    && currentRoute != com.nruge.iceinfo.ui.Screen.Journeys.route
+
                 Scaffold(
                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -323,6 +351,9 @@ class MainActivity : ComponentActivity() {
                             isReconnecting = isReconnecting,
                             serviceRunning = serviceRunning,
                             showPrideBadge = !trainStatus.isConnected && !isMockMode && !isWIFIonICEStatus,
+                            isRecording = isRecording,
+                            onSaveRecording = { viewModel.saveRecordingNow() },
+                            onCancelRecording = { viewModel.cancelRecording() },
                             onToggleService = {
                                 if (serviceRunning) {
                                     val stopIntent = Intent(context, IceNotificationService::class.java).apply {
@@ -348,6 +379,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
+                            onShareTrip = { com.nruge.iceinfo.util.shareTrainStatus(context, trainStatus) },
                             onExitDemo = { viewModel.setMockMode(false) },
                             onStartDemo = { viewModel.setMockMode(true) },
                             onShowSettings = { showSettings = true },
@@ -361,6 +393,7 @@ class MainActivity : ComponentActivity() {
                     },
                     bottomBar = {
                         if ((trainStatus.isConnected || isMockMode || isWIFIonICEStatus) && !demoBackInProgress
+                            && !noWifiOverlayVisible
                             && currentRoute != com.nruge.iceinfo.ui.Screen.Journeys.route) {
                             AppNavigationBar(
                                 currentRoute = currentRoute,
@@ -437,6 +470,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onTargetStopChange = { viewModel.setTargetStop(it) },
                                     coaches = coaches,
+                                    coachStopName = coachStopName,
                                     selectedCoach = selectedCoach,
                                     seatNumber = seatNumber,
                                     onCoachChange = { viewModel.setCoach(it) },
@@ -451,6 +485,8 @@ class MainActivity : ComponentActivity() {
                                     isRecording = isRecording,
                                     liveRecording = liveRecording,
                                     onStartRecording = { viewModel.requestRecording() },
+                                    onExportJourneys = { uri, cb -> viewModel.exportJourneys(uri, cb) },
+                                    onImportJourneys = { uri, cb -> viewModel.importJourneys(uri, cb) },
                                     menuItems = menuItems,
                                     isMenuLoading = isMenuLoading,
                                     onLoadMenu = { viewModel.fetchMenuIfNeeded() },
@@ -458,8 +494,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             // NoWifiScreen als Overlay wenn nicht verbunden und nicht auf Journeys-Screen
                             AnimatedVisibility(
-                                visible = !trainStatus.isConnected && !isMockMode && !isWIFIonICEStatus
-                                    && currentRoute != com.nruge.iceinfo.ui.Screen.Journeys.route,
+                                visible = noWifiOverlayVisible,
                                 enter = EnterTransition.None,
                                 exit = fadeOut(animationSpec = tween(200))
                             ) {
@@ -475,14 +510,52 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // Globaler Recording-Button – sichtbar auf allen Screens
-                            if (isRecording) {
-                                RecordingSplitButton(
-                                    onCancel = { viewModel.cancelRecording() },
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .padding(bottom = 24.dp + innerPadding.calculateBottomPadding())
-                                )
+                            // Popup: WIFIonICE verbunden, aber keine API-Verbindung — nur wenn
+                            // der NoWifiScreen die Meldung nicht ohnehin schon zeigt
+                            AnimatedVisibility(
+                                visible = isWIFIonICEStatus && !trainStatus.isConnected && !isMockMode
+                                    && !isRecording && !noWifiOverlayVisible,
+                                enter = slideInVertically { it } + fadeIn(),
+                                exit = slideOutVertically { it } + fadeOut(),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(
+                                        start = 16.dp, end = 16.dp,
+                                        bottom = 16.dp + innerPadding.calculateBottomPadding()
+                                    )
+                            ) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.extraLarge,
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    tonalElevation = 4.dp
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.WifiTetheringError,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.no_wifi_api_hint),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            onClick = { showDebug = true },
+                                            colors = ButtonDefaults.textButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        ) {
+                                            Text("Debug", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -546,7 +619,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showDebug) {
-                    DebugDialog(onDismiss = { showDebug = false })
+                    val simulateTrainWifi by viewModel.simulateWifiOnIce.collectAsStateWithLifecycle()
+                    DebugDialog(
+                        trainConnected = trainStatus.isConnected || isMockMode,
+                        simulateTrainWifi = simulateTrainWifi,
+                        onToggleSimulateTrainWifi = { viewModel.setSimulateWifiOnIce(it) },
+                        onDismiss = { showDebug = false }
+                    )
                 }
 
                 if (showOnboarding) {

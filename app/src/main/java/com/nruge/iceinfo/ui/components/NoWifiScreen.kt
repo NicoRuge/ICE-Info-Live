@@ -6,8 +6,11 @@ import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiTetheringError
 import androidx.compose.material3.*
@@ -57,7 +60,9 @@ fun NoWifiScreen(
     val screenshots = if (LocalDarkTheme.current) carouselScreenshotsDark else carouselScreenshotsLight
 
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Screenshot carousel with parallax
@@ -97,7 +102,10 @@ fun NoWifiScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = stringResource(R.string.welcome_subtitle),
+            text = stringResource(
+                if (isWIFIonICE) R.string.no_wifi_api_subtitle
+                else R.string.welcome_subtitle
+            ),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -112,28 +120,40 @@ fun NoWifiScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            WelcomeActionCard(
-                icon = if (isWIFIonICE) Icons.Default.WifiTetheringError else Icons.Default.Wifi,
-                title = stringResource(
-                    if (isWIFIonICE) R.string.no_wifi_api_hint
-                    else R.string.welcome_connect_title
-                ),
-                description = stringResource(
-                    if (isWIFIonICE) R.string.no_wifi_text
-                    else R.string.welcome_connect_desc
-                ),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_WIFI_SETTINGS).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    )
-                    onRetry()
-                }
-            )
-
+            if (isWIFIonICE) {
+                WelcomeActionCard(
+                    icon = Icons.Default.WifiTetheringError,
+                    title = stringResource(R.string.no_wifi_api_title),
+                    description = stringResource(R.string.no_wifi_api_desc),
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    onClick = null
+                )
+                WelcomeActionCard(
+                    icon = Icons.Default.PlayArrow,
+                    title = stringResource(R.string.no_wifi_demo_title),
+                    description = stringResource(R.string.welcome_demo_desc),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = onMockMode
+                )
+            } else {
+                WelcomeActionCard(
+                    icon = Icons.Default.Wifi,
+                    title = stringResource(R.string.welcome_connect_title),
+                    description = stringResource(R.string.welcome_connect_desc),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_WIFI_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                        onRetry()
+                    }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -247,15 +267,9 @@ private fun WelcomeActionCard(
     description: String,
     containerColor: Color,
     contentColor: Color,
-    onClick: () -> Unit
+    onClick: (() -> Unit)?
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        color = containerColor,
-        contentColor = contentColor
-    ) {
+    val cardContent: @Composable () -> Unit = {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -291,11 +305,34 @@ private fun WelcomeActionCard(
                     color = contentColor.copy(alpha = 0.75f)
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = 0.7f)
-            )
+            if (onClick != null) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = containerColor,
+            contentColor = contentColor
+        ) {
+            cardContent()
+        }
+    } else {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = containerColor,
+            contentColor = contentColor
+        ) {
+            cardContent()
         }
     }
 }

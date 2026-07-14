@@ -20,6 +20,7 @@ object SettingsManager {
     private const val KEY_LAST_JOURNEY_KEY = "last_journey_key"
     private const val KEY_COACH_NUMBER = "coach_number"
     private const val KEY_SEAT_NUMBER = "seat_number"
+    private const val KEY_PRIDE_FLAG_HIDDEN = "pride_flag_hidden"
 
     fun isCrashReportingEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -160,6 +161,15 @@ object SettingsManager {
     fun getSeatNumber(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_SEAT_NUMBER, "") ?: ""
+    }
+
+    fun isPrideFlagHidden(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PRIDE_FLAG_HIDDEN, false)
+
+    fun setPrideFlagHidden(context: Context, hidden: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_PRIDE_FLAG_HIDDEN, hidden).apply()
     }
 
     fun isOnboardingShown(context: Context): Boolean {

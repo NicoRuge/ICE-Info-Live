@@ -2,13 +2,7 @@ package com.nruge.iceinfo
 
 import com.nruge.iceinfo.model.*
 import com.nruge.iceinfo.model.MenuCategory
-import com.nruge.iceinfo.model.MenuDeclarationBox
-import com.nruge.iceinfo.model.MenuItemDeclarationGroup
 import com.nruge.iceinfo.model.MenuItem
-import com.nruge.iceinfo.model.MenuPicture
-import com.nruge.iceinfo.model.MenuPrice
-import com.nruge.iceinfo.model.MenuPriceInfo
-import com.nruge.iceinfo.model.MenuProductGroup
 import com.nruge.iceinfo.model.SavedJourney
 import com.nruge.iceinfo.model.TrackPoint
 
@@ -24,6 +18,7 @@ val sampleTrainStatus = TrainStatus(
     tzn = "ICE0304",
     series = "408",
     track = "4",
+    trackChanged = true,
     delayReason = "Kurzfristiger Personalausfall",
     distanceToNext = 86760,
     wagonClass = "FIRST",
@@ -59,7 +54,7 @@ val sampleTrainStatus = TrainStatus(
         TrainStop(
             name = "Hannover Hbf", evaNr = "8000152",
             scheduledArrival = "09:31", actualArrival = "09:34", delayMinutes = 3,
-            track = "4", passed = false, isNext = true, distanceFromStart = 150000,
+            track = "4", trackChanged = true, passed = false, isNext = true, distanceFromStart = 150000,
             scheduledDeparture = "09:33", actualDeparture = "09:36", departureDelayMinutes = 3
         ),
         // -5 min → überpünktlich → Rainbow 🌈
@@ -83,12 +78,13 @@ val sampleTrainStatus = TrainStatus(
             track = "3", passed = false, isNext = false, distanceFromStart = 400000, isAdditional = true,
             scheduledDeparture = "11:14", actualDeparture = "11:18", departureDelayMinutes = 4
         ),
-        // 7 min Delay → rot
+        // 7 min Delay → rot; zeigt außerdem den Fahrtrichtungswechsel-Indikator
         TrainStop(
             name = "Würzburg Hbf", evaNr = "8000260",
             scheduledArrival = "11:58", actualArrival = "12:05", delayMinutes = 7,
             track = "6", passed = false, isNext = false, distanceFromStart = 500000,
-            scheduledDeparture = "12:01", actualDeparture = "12:08", departureDelayMinutes = 7
+            scheduledDeparture = "12:01", actualDeparture = "12:08", departureDelayMinutes = 7,
+            directionChange = true
         ),
         // 12 min Delay → rot
         TrainStop(
@@ -134,6 +130,14 @@ val sampleCoaches = listOf(
         vehicleCategory = "PASSENGERCARRIAGE_ECONOMY_CLASS",
         sector = "B",
         amenities = setOf("ZONE_FAMILY", "CABIN_INFANT")
+    ),
+    Coach(
+        coachNumber = 0,
+        hasFirstClass = false, hasSecondClass = true,
+        vehicleCategory = "PASSENGERCARRIAGE_ECONOMY_CLASS",
+        sector = "B",
+        amenities = emptySet(),
+        isClosed = true
     ),
     Coach(
         coachNumber = 24,
@@ -232,6 +236,7 @@ val sampleConnections = listOf(
         destination = "Frankfurt (Main) Hbf",
         departure = "10:31",
         track = "3",
+        trackChanged = true,
         delayMinutes = 5,
         reachable = true,
         transferMinutes = 3
@@ -299,7 +304,7 @@ val sampleDepartures = listOf(
     Departure(line = "ICE 372", destination = "Basel SBB", scheduledTime = "11:08", delayMinutes = 0, platform = "9"),
     Departure(line = "RE 7", destination = "Kassel-Wilhelmshöhe", scheduledTime = "11:14", delayMinutes = 3, platform = "4"),
     Departure(line = "S 1", destination = "Hannover-Bismarckstr.", scheduledTime = "11:17", delayMinutes = 0, platform = "2"),
-    Departure(line = "ICE 1075", destination = "München Hbf", scheduledTime = "11:23", delayMinutes = 12, platform = "5"),
+    Departure(line = "ICE 1075", destination = "München Hbf", scheduledTime = "11:23", delayMinutes = 12, platform = "5", platformChanged = true),
     Departure(line = "IC 2027", destination = "Köln Hbf", scheduledTime = "11:29", delayMinutes = 0, platform = "7", cancelled = true),
     Departure(line = "RB 87", destination = "Bebra", scheduledTime = "11:36", delayMinutes = 0, platform = "1"),
     Departure(line = "ICE 884", destination = "Hamburg-Altona", scheduledTime = "11:42", delayMinutes = 5, platform = "8")
@@ -442,11 +447,11 @@ val sampleJourneys: List<SavedJourney> = listOf(
         trackPoints = emptyList()
     )
 )
-private fun menuItem(id: Int, title: String, subject: String = "", imgPath: String, eurPrice: Double, chfPrice: Double, decls: List<String> = emptyList(), visible: Boolean = true) = MenuItem(
+private fun menuItem(id: Int, title: String, subject: String = "", imgPath: String, eurPrice: Double, @Suppress("UNUSED_PARAMETER") chfPrice: Double, decls: List<String> = emptyList(), visible: Boolean = true) = MenuItem(
     id = id, title = title, subject = subject,
-    picture = MenuPicture(src = imgPath),
-    priceInfo = MenuPriceInfo(listOf(MenuPrice("EUR", eurPrice), MenuPrice("CHF", chfPrice))),
-    declarationBox = if (decls.isEmpty()) null else MenuDeclarationBox(MenuProductGroup(listOf(MenuItemDeclarationGroup(decls)))),
+    imageUrl = imgPath,
+    eurPrice = eurPrice,
+    declarationKeys = decls,
     visible = visible
 )
 

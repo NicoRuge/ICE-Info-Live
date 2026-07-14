@@ -2,77 +2,42 @@ package com.nruge.iceinfo.model
 
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class MenuPageResponse(
-    val teaserGroups: List<MenuTeaserGroup> = emptyList(),
-    val messages: List<MenuMessage> = emptyList(),
-    val declarationGroup: MenuDeclarationGroup? = null
-)
+// --- API response models (flat array from /bap/api/products) ---
 
 @Serializable
-data class MenuTeaserGroup(
+data class ApiProduct(
+    val ecmId: Int = 0,
+    val category: String = "",
     val title: String = "",
-    val items: List<MenuItem> = emptyList()
+    val description: String = "",
+    val visible: Boolean = true,
+    val available: Boolean = true,
+    val imageUrl: String = "",
+    val declarations: List<ApiDeclaration> = emptyList(),
+    val prices: List<ApiPrice> = emptyList(),
+    val productType: String = "ARTICLE",
+    val options: List<ApiProductOption> = emptyList()
 )
 
 @Serializable
-data class MenuItem(
-    val id: Int = 0,
+data class ApiProductOption(
+    val ecmId: Int = 0,
     val title: String = "",
-    val subject: String = "",
-    val picture: MenuPicture? = null,
-    val priceInfo: MenuPriceInfo? = null,
-    val declarationBox: MenuDeclarationBox? = null,
-    val visible: Boolean = true
-) {
-    val imageUrl: String get() = picture?.src ?: ""
-    val eurPrice: Double? get() = priceInfo?.prices?.firstOrNull { it.currency == "EUR" }?.value
-    val declarationKeys: List<String>
-        get() = declarationBox?.productMainGroup?.declarationGroups
-            ?.flatMap { it.keys } ?: emptyList()
-}
-
-@Serializable
-data class MenuPicture(val src: String = "")
-
-@Serializable
-data class MenuPriceInfo(
-    val prices: List<MenuPrice> = emptyList()
+    val productType: String = "ARTICLE",
+    val prices: List<ApiPrice> = emptyList(),
+    val available: Boolean = true
 )
 
 @Serializable
-data class MenuPrice(val currency: String = "", val value: Double = 0.0)
-
-@Serializable
-data class MenuDeclarationBox(
-    val productMainGroup: MenuProductGroup? = null
+data class ApiDeclaration(
+    val shortDescription: String = "",
+    val description: String = ""
 )
 
 @Serializable
-data class MenuProductGroup(
-    val declarationGroups: List<MenuItemDeclarationGroup> = emptyList()
-)
-
-@Serializable
-data class MenuItemDeclarationGroup(
-    val keys: List<String> = emptyList()
-)
-
-@Serializable
-data class MenuDeclarationGroup(
-    val items: List<MenuDeclarationEntry> = emptyList()
-)
-
-@Serializable
-data class MenuDeclarationEntry(
-    val key: String = "",
-    val text: String = ""
-)
-
-@Serializable
-data class MenuMessage(
-    val type: String = "",
-    val text: String = ""
+data class ApiPrice(
+    val currency: String = "",
+    val price: Double = 0.0
 )
 
 @Serializable
@@ -81,6 +46,30 @@ data class AvailabilityItem(
     val status: String = "",
     val visible: Boolean = true
 )
+
+// --- Internal UI models ---
+
+data class MenuItemOption(
+    val id: Int,
+    val title: String,
+    val eurPrice: Double?,
+    val available: Boolean
+)
+
+data class MenuItem(
+    val id: Int,
+    val title: String,
+    val subject: String,
+    val imageUrl: String,
+    val eurPrice: Double?,
+    val declarationKeys: List<String>,
+    val visible: Boolean,
+    val productType: String = "ARTICLE",
+    val options: List<MenuItemOption> = emptyList()
+) {
+    val isOrderable: Boolean get() = visible && (options.isEmpty() || options.any { it.available })
+    val hasOptions: Boolean get() = productType == "OPTION_ARTICLE" && options.isNotEmpty()
+}
 
 data class MenuCategory(
     val title: String,

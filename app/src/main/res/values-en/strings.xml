@@ -92,6 +92,11 @@
     <string name="info_close">Close</string>
     <string name="demo_mode_text">You can also use a demo mode,\nto test the app without train Wi-Fi.</string>
     <string name="no_wifi_api_hint">ICEportal.de is currently not available.</string>
+    <string name="no_wifi_api_subtitle">You are connected to WIFIonICE – the onboard portal is not responding right now.</string>
+    <string name="no_wifi_api_title">The train isn\'t sending any data right now</string>
+    <string name="no_wifi_api_desc">This is an issue on the train, not with the app. Waiting a moment or reconnecting to the Wi-Fi usually helps.</string>
+    <string name="no_wifi_demo_title">Try the app with demo data</string>
+    <string name="debug_simulate_wifi">Simulate train Wi-Fi</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title">Welcome to ICEinfo!</string>
@@ -156,16 +161,21 @@
     <string name="stop_selection_title">Choose destination</string>
     <string name="stop_selection_empty">No upcoming stops available.</string>
     <string name="stop_selection_arrival_track">Arrival: %1$s · Platform %2$s</string>
+    <string name="stop_selection_arrival">Arrival: %1$s</string>
     <string name="cancel">Cancel</string>
     <string name="home_target_title">Your destination</string>
     <string name="home_no_target">No destination chosen</string>
     <string name="home_next_stop_title">Next Stop</string>
     <string name="home_coach_map_title">Coach Layout</string>
+    <string name="home_coach_map_subtitle">Sectors at %1$s</string>
+    <string name="coach_closed">Closed</string>
     <string name="home_coach_label">Coach</string>
     <string name="home_seat_label">Seat</string>
 
     <!-- Travel summary -->
     <string name="travel_remaining_stops">%1$d stops left</string>
+    <string name="travel_remaining_stops_target">%1$d stops until destination</string>
+    <string name="travel_next_stop_exit">Exit at the next station. Have a nice day :)</string>
 
     <!-- Connections -->
     <string name="connections_more_departures">More departures in %1$s</string>
@@ -173,6 +183,24 @@
     <string name="track_full">Platform %1$s</string>
     <string name="stop_additional">Additional stop</string>
     <string name="stop_cancelled">Cancelled</string>
+    <string name="stop_direction_change">Direction change</string>
+    <string name="recording_active_cd">Recording in progress</string>
+    <string name="recording_save_now">Save now</string>
+    <string name="recording_cancel">Discard recording</string>
+    <string name="recording_cancel_confirm_title">Discard recording?</string>
+    <string name="recording_cancel_confirm_text">The current recording including its GPS track will be permanently deleted.</string>
+    <string name="recording_cancel_confirm_discard">Discard</string>
+    <string name="recording_cancel_confirm_keep">Keep recording</string>
+    <string name="journeys_export">Export</string>
+    <string name="journeys_import">Import</string>
+    <string name="journeys_export_done">Journeys exported</string>
+    <string name="journeys_export_failed">Export failed</string>
+    <string name="journeys_import_none">No new journeys found</string>
+    <string name="journeys_import_invalid">Invalid or corrupted file</string>
+    <plurals name="journeys_imported">
+        <item quantity="one">1 journey imported</item>
+        <item quantity="other">%1$d journeys imported</item>
+    </plurals>
 
     <!-- In-App Update -->
     <string name="update_downloaded">Update downloaded</string>
@@ -221,4 +249,15 @@
     <string name="debug_section_device">Device information</string>
     <string name="debug_section_trip">API /trip</string>
     <string name="debug_section_connection">API /connection</string>
+    <!-- Weather -->
+    <string name="jacket_none">You probably don\'t need a jacket</string>
+    <string name="jacket_light">You might need a light jacket</string>
+    <string name="jacket_warm">It\'s getting cold. Maybe take a warm jacket.</string>
+    <string name="jacket_rain">It\'s going to rain. Better take a raincoat.</string>
+    <string name="jacket_wind">It\'s going to be windy.</string>
+
+    <!-- Share trip -->
+    <string name="share_trip_cd">Share trip</string>
+    <string name="share_trip_chooser">Share trip</string>
+    <string name="share_trip_text">Hey! I\'m on 🚄 %1$s heading to %2$s at %3$d km/h\n🕐 next stop: %4$s at %5$s\n🎯 Arriving %6$s at %7$s\n\n— shared via ICE Info</string>
 </resources>

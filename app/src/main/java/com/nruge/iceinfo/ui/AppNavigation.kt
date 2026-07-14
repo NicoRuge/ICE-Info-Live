@@ -53,6 +53,7 @@ fun AppNavigation(
     onDemoSpeedChange: (Int) -> Unit,
     onTargetStopChange: (String?) -> Unit,
     coaches: List<com.nruge.iceinfo.model.Coach>,
+    coachStopName: String,
     selectedCoach: Int?,
     seatNumber: String,
     onCoachChange: (Int?) -> Unit,
@@ -67,6 +68,8 @@ fun AppNavigation(
     isRecording: Boolean,
     liveRecording: LiveRecordingState?,
     onStartRecording: () -> Unit,
+    onExportJourneys: (android.net.Uri, (Boolean) -> Unit) -> Unit = { _, _ -> },
+    onImportJourneys: (android.net.Uri, (Int) -> Unit) -> Unit = { _, _ -> },
     menuItems: List<MenuCategory>,
     isMenuLoading: Boolean,
     onLoadMenu: () -> Unit,
@@ -95,6 +98,7 @@ fun AppNavigation(
                         showDemoSpeed = showDemoSpeed,
                         reducedMotion = reducedMotion,
                         coaches = coaches,
+                        coachStopName = coachStopName,
                         selectedCoach = selectedCoach,
                         seatNumber = seatNumber,
                         onDemoSpeedChange = onDemoSpeedChange,
@@ -113,6 +117,7 @@ fun AppNavigation(
             Screen.Menu -> MenuScreen(
                 categories = menuItems,
                 isLoading = isMenuLoading,
+                trainConnected = trainStatus.isConnected || isMockMode,
                 onLoad = onLoadMenu,
                 onRefresh = onRefreshMenu
             )
@@ -152,7 +157,9 @@ fun AppNavigation(
             isConnected = trainStatus.isConnected,
             isRecording = isRecording,
             liveRecording = liveRecording,
-            onStartRecording = onStartRecording
+            onStartRecording = onStartRecording,
+            onExportJourneys = onExportJourneys,
+            onImportJourneys = onImportJourneys
         )
     }
 }

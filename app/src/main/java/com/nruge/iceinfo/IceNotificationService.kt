@@ -36,6 +36,9 @@ class IceNotificationService : Service() {
         private const val POLL_INTERVAL_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L
         private const val MAX_BACKOFF_STEPS = 4
+        // Nach so vielen aufeinanderfolgenden Fehlversuchen (~70 s Backoff) gilt das
+        // Zug-WLAN als verlassen und der Service beendet sich samt Notification.
+        private const val STOP_AFTER_FAILURES = 4
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -152,16 +155,20 @@ class IceNotificationService : Service() {
                     } else {
                         TrainRepository.fetchTrainStatus()
                     }.copy(targetStopEva = targetStopEva)
-                    lastKnownStatus = status
 
-                    val targetStop = status.stops.find { it.evaNr == targetStopEva }
-                    com.nruge.iceinfo.widget.WidgetUpdater.update(
-                        this@IceNotificationService,
-                        status,
-                        isDemo,
-                        targetStop?.name
-                    )
-                    notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
+                    // Fallback-/Beispieldaten bei Verbindungsverlust nie anzeigen —
+                    // Notification und Widget behalten den letzten echten Stand.
+                    if (isDemo || status.isConnected) {
+                        lastKnownStatus = status
+                        val targetStop = status.stops.find { it.evaNr == targetStopEva }
+                        com.nruge.iceinfo.widget.WidgetUpdater.update(
+                            this@IceNotificationService,
+                            status,
+                            isDemo,
+                            targetStop?.name
+                        )
+                        notificationManager.notify(NOTIFICATION_ID, buildNotification(status))
+                    }
                     status.isConnected
                 } catch (e: Exception) {
                     Log.e("IceService", "Fehler: ${e.message}")
@@ -172,8 +179,12 @@ class IceNotificationService : Service() {
                     failureCount = 0
                     delay(POLL_INTERVAL_MS)
                 } else {
-                    failureCount = (failureCount + 1).coerceAtMost(MAX_BACKOFF_STEPS)
-                    val backoff = POLL_INTERVAL_MS * (1L shl failureCount)
+                    failureCount++
+                    if (failureCount >= STOP_AFTER_FAILURES) {
+                        stopSelfCleanly()
+                        return@launch
+                    }
+                    val backoff = POLL_INTERVAL_MS * (1L shl failureCount.coerceAtMost(MAX_BACKOFF_STEPS))
                     delay(backoff.coerceAtMost(MAX_BACKOFF_MS))
                 }
             }

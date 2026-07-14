@@ -37,8 +37,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.nruge.iceinfo.R
 
@@ -49,6 +57,51 @@ internal data class ChangelogEntry(
 )
 
 internal val changelog = listOf(
+    ChangelogEntry(
+        version = "6.2",
+        newFeatures = listOf(
+            "Zug-Seite zeigt nun den Taufnamen des Zuges",
+            "Gesperrte Wagen werden jetzt als gesperrt in der Wagenreihung angezeigt",
+            "Teilen-Button um einen Textblock mit Infos deiner Reise an Freunde zu schicken",
+            "Import/Export aller aufgezeichneter Fahrten ",
+            "[Issue #24] Im Streckenverlauf sind nun Fahrtrichtungswechsel angegeben",
+            "[Issue #18] Fahrt Teilen: Nun kannst du im Dreipunkt-Menü den aktuellen Stand deiner Fahrt teilen, mit Geschwindigkeit, Zugnummer, nächstem Halt und deinem Zielhalt"
+        ),
+        fixes = listOf(
+            "[Issue #22] 'Aufzeichnung läuft'-Banner nun im Header, neben dem Live-Indikator'",
+            "[Issue #21] Fahrtaufzeichnungen werden jetzt zwischengespeichert und automatisch gespeichert, wenn die Reise abgeschlossen ist",
+            "[Issue #17] Die Live-Notification beendet nun bei Verlust des Zug WLANs, statt in den Demo-Modus zu springen"
+        )
+    ),
+    ChangelogEntry(
+        version = "6.0.1",
+        fixes = listOf(
+            "SSL-Verbindungsfehler zum ICE Portal behoben – die App verbindet sich jetzt auch bei ungültiger Zertifikatskette zuverlässig",
+            "Die Wagenreihung bei Doppeltraktion zeigt jetzt in der mitte nicht mehr zwei Triebköpfe nach links",
+            "Debug Dialog ist nun hilfreicher und die Textdatei zum Teilen beinhaltet mehr Daten"
+        )
+    ),
+    ChangelogEntry(
+        version = "6",
+        newFeatures = listOf(
+            "SPEISEKARTE - Jetzt die Live-Speisekarte des Bordrestaurants direkt in der App ansehen",
+            "FAHRTEN AUFZEICHNEN - Jetzt kannst du deine Fahrten aufzeichnen und in der App speichen, mit Daten wie Durchschnittsgeschwindigkeit, Verspätung, oder Karte mit dem Fahrtverlauf (Als .GPX exportierbar)",
+            "Streckenkarte ersetzt durch einen Daten-Tab mit Streckeninfos zu Höchstgeschwindigkeit, Elektrifizierung, Gleisanzahl, Streckentyp, POIs",
+            "Halte und Anschlüsse: Zeiten wechseln alle 5 Sekunden zwischen Uhrzeit HH:MM und Restzeit ('in X min') - kein rechnen mehr ;)",
+            "Swipen um Seiten zu wechseln"
+        ),
+        fixes = listOf(
+            "API Abfragen wurden reduziert"
+        )
+    ),
+    ChangelogEntry(
+        version = "6.0.1",
+        fixes = listOf(
+            "SSL-Verbindungsfehler zum ICE Portal behoben – die App verbindet sich jetzt auch bei ungültiger Zertifikatskette zuverlässig",
+            "Die Wagenreihung bei Doppeltraktion zeigt jetzt in der mitte nicht mehr zwei Triebköpfe nach links",
+            "Debug Dialog ist nun hilfreicher und die Textdatei zum Teilen beinhaltet mehr Daten"
+        )
+    ),
     ChangelogEntry(
         version = "6",
         newFeatures = listOf(
@@ -351,7 +404,7 @@ private fun ChangeGroup(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
+                AnnotatedChangelogText(
                     text = item,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
@@ -359,6 +412,48 @@ private fun ChangeGroup(
             }
         }
     }
+}
+
+@Composable
+private fun AnnotatedChangelogText(
+    text: String,
+    style: TextStyle,
+    color: Color = Color.Unspecified
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val annotatedString = buildAnnotatedString {
+        val issuePattern = Regex("\\[Issue #(\\d+)]")
+        var lastMatchEnd = 0
+        issuePattern.findAll(text).forEach { matchResult ->
+            append(text.substring(lastMatchEnd, matchResult.range.first))
+            val issueNumber = matchResult.groupValues[1]
+            val url = "https://github.com/NicoRuge/ICE-Info-Live/issues/$issueNumber"
+
+            withLink(
+                LinkAnnotation.Url(
+                    url = url,
+                    styles = TextLinkStyles(
+                        style = SpanStyle(
+                            color = primaryColor,
+                            textDecoration = TextDecoration.Underline,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                )
+            ) {
+                append(matchResult.value)
+            }
+
+            lastMatchEnd = matchResult.range.last + 1
+        }
+        append(text.substring(lastMatchEnd))
+    }
+
+    Text(
+        text = annotatedString,
+        style = style,
+        color = color
+    )
 }
 
 @Composable
@@ -387,7 +482,10 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.size(16.dp).padding(top = 2.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Text(feature, style = MaterialTheme.typography.bodySmall)
+                                AnnotatedChangelogText(
+                                    text = feature,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }
@@ -409,7 +507,10 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.size(16.dp).padding(top = 2.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(fix, style = MaterialTheme.typography.bodySmall)
+                                AnnotatedChangelogText(
+                                    text = fix,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }

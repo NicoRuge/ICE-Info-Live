@@ -37,7 +37,7 @@ private val NOSE_DEPTH   = 18.dp
 // ─── Public card ─────────────────────────────────────────────────────────────
 
 @Composable
-fun WagenreihungCard(coaches: List<Coach>, selectedCoach: Int?) {
+fun WagenreihungCard(coaches: List<Coach>, stopName: String = "", selectedCoach: Int?) {
     if (coaches.isEmpty()) return
 
     val firstClassBg  = MaterialTheme.colorScheme.primaryContainer
@@ -74,11 +74,20 @@ fun WagenreihungCard(coaches: List<Coach>, selectedCoach: Int?) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = stringResource(R.string.home_coach_map_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = stringResource(R.string.home_coach_map_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (stopName.isNotBlank()) {
+                        Text(
+                            text = stringResource(R.string.home_coach_map_subtitle, stopName),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -126,14 +135,22 @@ fun WagenreihungCard(coaches: List<Coach>, selectedCoach: Int?) {
                             verticalAlignment = Alignment.Top
                         ) {
                             segment.coaches.forEachIndexed { coachIdx, coach ->
-                                val isFirst = segIdx == 0 && coachIdx == 0
-                                val isLast  = segIdx == segments.lastIndex &&
-                                              coachIdx == segment.coaches.lastIndex
+                                val flatIdx = segments.take(segIdx).sumOf { it.coaches.size } + coachIdx
+                                val isFirst = flatIdx == 0
+                                val isLast  = flatIdx == coaches.lastIndex
+                                val prevCoach = coaches.getOrNull(flatIdx - 1)
+                                val prevIsLocoOrControl = prevCoach != null &&
+                                    (prevCoach.vehicleCategory == "LOCOMOTIVE" ||
+                                     prevCoach.vehicleCategory.contains("CONTROLCAR", ignoreCase = true))
+                                val isLocoOrControl = coach.vehicleCategory == "LOCOMOTIVE" ||
+                                    coach.vehicleCategory.contains("CONTROLCAR", ignoreCase = true)
+                                val forceNoseRight = isLocoOrControl && !isFirst && !isLast && !prevIsLocoOrControl
                                 WagonItem(
-                                    coach         = coach,
-                                    isSelected    = coach.coachNumber == selectedCoach,
+                                    coach          = coach,
+                                    isSelected     = coach.coachNumber == selectedCoach,
                                     isFirstInTrain = isFirst,
                                     isLastInTrain  = isLast,
+                                    forceNoseRight = forceNoseRight,
                                     firstClassBg  = firstClassBg,
                                     secondClassBg = secondClassBg,
                                     diningBg      = diningBg,
@@ -173,6 +190,7 @@ private fun WagonItem(
     isSelected: Boolean,
     isFirstInTrain: Boolean,
     isLastInTrain: Boolean,
+    forceNoseRight: Boolean = false,
     firstClassBg: Color,
     secondClassBg: Color,
     diningBg: Color,
@@ -183,21 +201,34 @@ private fun WagonItem(
     onSurfaceVar: Color
 ) {
     val cat       = coach.vehicleCategory
+    val isClosed  = coach.isClosed
     val isLoco    = cat == "LOCOMOTIVE"
     val isDining  = cat.contains("DINING",      ignoreCase = true)
     val isControl = cat.contains("CONTROLCAR",  ignoreCase = true)
     val isFirst   = coach.hasFirstClass && !coach.hasSecondClass
     val isMixed   = coach.hasFirstClass && coach.hasSecondClass
 
+    val closedBg     = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f)
+    val closedBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+
     val bgColor = when {
+        isClosed  -> closedBg
         isLoco    -> locoBg
         isDining  -> diningBg
         isFirst || isMixed -> firstClassBg
         else      -> secondClassBg
     }
-    val borderColor = if (isSelected) selectedColor else outlineColor
+    val borderColor = when {
+        isSelected -> selectedColor
+        isClosed   -> closedBorder
+        else       -> outlineColor
+    }
     val borderDp    = if (isSelected) 2.dp else 1.dp
-    val winAlpha    = if (isSelected) 0.28f else 0.15f
+    val winAlpha    = when {
+        isClosed   -> 0f      // gesperrt: keine Fenster zeichnen
+        isSelected -> 0.28f
+        else       -> 0.15f
+    }
 
     val coachWidth = when {
         isLoco   -> 36.dp
@@ -205,9 +236,10 @@ private fun WagonItem(
         else     -> 46.dp
     }
 
-    // For control cars: nose on the outward end of the train
+    // For control cars: nose on the outward end of the train.
+    // forceNoseRight handles middle locos in Doppeltraktion (rear of first train section).
     val noseLeft  = isFirstInTrain
-    val noseRight = isLastInTrain
+    val noseRight = isLastInTrain || forceNoseRight
 
     val diningIconTint = MaterialTheme.colorScheme.onTertiaryContainer
 
@@ -265,7 +297,7 @@ private fun WagonItem(
             }
 
             // Material Icon overlay for dining car
-            if (isDining) {
+            if (isDining && !isClosed) {
                 Icon(
                     imageVector = Icons.Default.Restaurant,
                     contentDescription = null,
@@ -273,14 +305,32 @@ private fun WagonItem(
                     tint = diningIconTint
                 )
             }
+
+            // Lock overlay for closed/locked wagons
+            if (isClosed) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = stringResource(R.string.coach_closed),
+                    modifier = Modifier.size(18.dp),
+                    tint = onSurfaceVar
+                )
+            }
         }
 
         // ── Coach number ──────────────────────────────────────────────────────
         Text(
-            text = if (isLoco) "" else coach.coachNumber.toString(),
+            text = when {
+                isClosed -> stringResource(R.string.coach_closed)
+                isLoco   -> ""
+                else     -> coach.coachNumber.toString()
+            },
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) selectedColor else onSurface
+            color = when {
+                isSelected -> selectedColor
+                isClosed   -> onSurfaceVar
+                else       -> onSurface
+            }
         )
 
         // ── Amenity icons (Material Icons, not emojis) ────────────────────────
@@ -402,7 +452,7 @@ fun String.toWagonAmenityIcon(): ImageVector? = when (this) {
 private fun WagenreihungCardPreview() {
     ICEInfoTheme {
         Box(modifier = Modifier.padding(16.dp)) {
-            WagenreihungCard(coaches = sampleCoaches, selectedCoach = 24)
+            WagenreihungCard(coaches = sampleCoaches, stopName = "Erfurt Hbf", selectedCoach = 24)
         }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Train
+import androidx.compose.material.icons.filled.UTurnLeft
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Water
 import androidx.compose.material3.*
@@ -252,12 +253,18 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean, showRela
                 }
             }
             if (!isCancelled && stop.track.isNotEmpty()) {
-                Text(
+                TrackLabel(
                     text = stringResource(R.string.track_full, stop.track),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                        .copy(alpha = if (isPassed) 0.5f else 1f),
+                    changed = stop.trackChanged,
                     style = MaterialTheme.typography.bodySmall
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.track_full, stop.track),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            .copy(alpha = if (isPassed) 0.5f else 1f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
             if (stop.isAdditional) {
                 Row(
@@ -275,6 +282,27 @@ fun TimelineStopRow(stop: TrainStop, isFirst: Boolean, isLast: Boolean, showRela
                     Text(
                         text = stringResource(R.string.stop_additional),
                         color = onSuccessContainer()
+                            .copy(alpha = if (isPassed) 0.5f else 1f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            if (!isCancelled && stop.directionChange) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.UTurnLeft,
+                        contentDescription = null,
+                        modifier = Modifier.size(11.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                            .copy(alpha = if (isPassed) 0.5f else 1f)
+                    )
+                    Text(
+                        text = stringResource(R.string.stop_direction_change),
+                        color = MaterialTheme.colorScheme.primary
                             .copy(alpha = if (isPassed) 0.5f else 1f),
                         style = MaterialTheme.typography.bodySmall
                     )

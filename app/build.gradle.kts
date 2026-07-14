@@ -20,8 +20,8 @@ android {
         applicationId = "com.nruge.iceinfo"
         minSdk = 33
         targetSdk = 36
-        versionCode = 14
-        versionName = "6"
+        versionCode = 17
+        versionName = "6.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -51,8 +51,6 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta"
         }
     }
     compileOptions {
@@ -91,6 +89,7 @@ dependencies {
     implementation("com.google.android.play:app-update-ktx:2.1.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
+    implementation("com.google.firebase:firebase-crashlytics-ndk")
     implementation(libs.coil.compose)
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     testImplementation(libs.junit)
@@ -100,11 +99,4 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-}
-
-// Google Services kennt die Beta-App-ID nicht — Task für Debug-Builds überspringen
-afterEvaluate {
-    tasks.matching { it.name == "processDebugGoogleServices" }.configureEach {
-        enabled = false
-    }
 }

@@ -2,4 +2,5 @@
 <paths>
     <cache-path name="debug_exports" path="debug/" />
     <cache-path name="gpx_exports" path="gpx/" />
+    <cache-path name="share" path="share/" />
 </paths>

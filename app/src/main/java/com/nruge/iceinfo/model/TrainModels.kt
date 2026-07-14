@@ -1,5 +1,7 @@
 package com.nruge.iceinfo.model
 
+import androidx.annotation.StringRes
+import com.nruge.iceinfo.R
 import kotlinx.serialization.Serializable
 
 enum class AppTheme { LIGHT, DARK, SYSTEM }
@@ -14,6 +16,7 @@ data class TrainStatus(
     val eta: String,
     val delayMinutes: Int = 0,
     val track: String = "",
+    val trackChanged: Boolean = false,
     val delayReason: String = "",
     val distanceToNext: Int = 0,
     val distanceLastToNext: Int = 0,
@@ -44,6 +47,7 @@ data class TrainStop(
     val actualArrival: String,
     val delayMinutes: Int,
     val track: String,
+    val trackChanged: Boolean = false,
     val passed: Boolean,
     val isNext: Boolean,
     val distanceFromStart: Int = 0,
@@ -53,7 +57,10 @@ data class TrainStop(
     val scheduledDeparture: String = "",
     val actualDeparture: String = "",
     val departureDelayMinutes: Int = 0,
-    val isCancelled: Boolean = false
+    val isCancelled: Boolean = false,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val directionChange: Boolean = false
 ) {
     val effectiveArrivalMs: Long
         get() = if (scheduledArrivalMs > 0L) scheduledArrivalMs + delayMinutes * 60_000L else 0L
@@ -66,6 +73,7 @@ data class Departure(
     val scheduledTime: String,
     val delayMinutes: Int = 0,
     val platform: String = "",
+    val platformChanged: Boolean = false,
     val cancelled: Boolean = false
 )
 
@@ -86,12 +94,12 @@ data class WeatherInfo(
     val windspeed: Double,
     val weatherCode: Int
 ) {
-    enum class JacketType(val label: String) {
-        NONE("Keine Jacke nötig"),
-        LIGHT("Leichte Jacke"),
-        WARM("Warme Jacke"),
-        RAIN("Regenjacke"),
-        WIND("Windjacke")
+    enum class JacketType(@StringRes val labelResId: Int) {
+        NONE(R.string.jacket_none),
+        LIGHT(R.string.jacket_light),
+        WARM(R.string.jacket_warm),
+        RAIN(R.string.jacket_rain),
+        WIND(R.string.jacket_wind)
     }
 
     val jacketRecommendation: JacketType
@@ -111,6 +119,7 @@ data class ConnectingTrain(
     val destination: String = "",
     val departure: String = "",
     val track: String = "",
+    val trackChanged: Boolean = false,
     val delayMinutes: Int = 0,
     val reachable: Boolean = true,
     val transferMinutes: Int? = null

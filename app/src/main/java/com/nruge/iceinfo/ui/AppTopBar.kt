@@ -27,9 +27,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nruge.iceinfo.R
+import com.nruge.iceinfo.util.SettingsManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +48,11 @@ fun AppTopBar(
     isReconnecting: Boolean = false,
     serviceRunning: Boolean,
     showPrideBadge: Boolean = false,
+    isRecording: Boolean = false,
+    onSaveRecording: () -> Unit = {},
+    onCancelRecording: () -> Unit = {},
     onToggleService: () -> Unit,
+    onShareTrip: (() -> Unit)? = null,
     onExitDemo: () -> Unit,
     onStartDemo: () -> Unit,
     onShowSettings: () -> Unit,
@@ -57,39 +69,26 @@ fun AppTopBar(
     val scrolledFraction = scrollBehavior?.state?.overlappedFraction ?: 0f
     var showPrideDialog by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    var prideFlagHidden by remember {
+        mutableStateOf(SettingsManager.isPrideFlagHidden(context))
+    }
+    val coroutineScope = rememberCoroutineScope()
+
     if (showPrideDialog) {
         PrideDialog(onDismiss = { showPrideDialog = false })
     }
 
     Column {
-        TopAppBar(
+        CenterAlignedTopAppBar(
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.app_title),
-                    fontWeight = FontWeight.Bold
-                )
-                when {
-                    isMockMode -> ConnectionStatusBadge(state = ConnectionState.DEMO)
-                    isReconnecting -> ConnectionStatusBadge(state = ConnectionState.RECONNECTING)
-                    apiUnreachable -> ConnectionStatusBadge(state = ConnectionState.OFFLINE)
-                    isConnected    -> ConnectionStatusBadge(state = ConnectionState.LIVE)
-                }
+            when {
+                isMockMode     -> ConnectionStatusBadge(state = ConnectionState.DEMO)
+                isReconnecting -> ConnectionStatusBadge(state = ConnectionState.RECONNECTING)
+                apiUnreachable -> ConnectionStatusBadge(state = ConnectionState.OFFLINE)
+                isConnected    -> ConnectionStatusBadge(state = ConnectionState.LIVE)
+                else           -> {}
             }
-            Image(
-                painter = painterResource(R.drawable.progressive_pride),
-                contentDescription = "Pride Flag",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(width = 32.dp, height = 22.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable { showPrideDialog = true }
-            )
-            } // Row
         },
         navigationIcon = {
             when {
@@ -99,11 +98,75 @@ fun AppTopBar(
                 isMockMode -> IconButton(onClick = onExitDemo) {
                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.demo_end))
                 }
+                else -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    Text(
+                        text = "ICE",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontStyle = FontStyle.Italic,
+                        color = Color(0xFFCC0000)
+                    )
+                    Text(
+                        text = "info",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    var holdProgress by remember { mutableFloatStateOf(0f) }
+                    Image(
+                        painter = painterResource(R.drawable.progressive_pride),
+                        contentDescription = "Pride Flag",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(width = 20.dp, height = 14.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .graphicsLayer {
+                                alpha = if (prideFlagHidden) holdProgress.coerceAtLeast(0.08f)
+                                        else 1f - holdProgress * 0.6f
+                            }
+                            .pointerInput(prideFlagHidden) {
+                                detectTapGestures(
+                                    onTap = { if (!prideFlagHidden) showPrideDialog = true },
+                                    onPress = {
+                                        val job = coroutineScope.launch {
+                                            repeat(50) { i ->
+                                                holdProgress = (i + 1) / 50f
+                                                delay(100L)
+                                            }
+                                            val newHidden = !prideFlagHidden
+                                            prideFlagHidden = newHidden
+                                            SettingsManager.setPrideFlagHidden(context, newHidden)
+                                            holdProgress = 0f
+                                        }
+                                        tryAwaitRelease()
+                                        job.cancel()
+                                        holdProgress = 0f
+                                    }
+                                )
+                            }
+                    )
+                }
             }
         },
         actions = {
             var menuExpanded by remember { mutableStateOf(false) }
 
+            if (isRecording) {
+                RecordingAction(onSave = onSaveRecording, onCancel = onCancelRecording)
+            }
             if (isConnected || isMockMode) {
                 IconButton(onClick = onToggleService) {
                     Icon(
@@ -121,6 +184,13 @@ fun AppTopBar(
                 onDismissRequest = { menuExpanded = false },
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
+                if ((isConnected || isMockMode) && onShareTrip != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.share_trip_cd)) },
+                        onClick = { onShareTrip(); menuExpanded = false },
+                        leadingIcon = { Icon(Icons.Default.Share, null) }
+                    )
+                }
                 if (!isMockMode) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.demo_mode)) },
@@ -150,7 +220,7 @@ fun AppTopBar(
                 )
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = barContainerColor,
             scrolledContainerColor = barContainerColor,
             titleContentColor = barContentColor,
@@ -163,6 +233,80 @@ fun AppTopBar(
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (showScrollDivider) scrolledFraction else 0f)
     )
     } // Column
+}
+
+/** Pulsierender Aufnahme-Punkt im Header; Tap öffnet Speichern/Abbrechen. */
+@Composable
+private fun RecordingAction(onSave: () -> Unit, onCancel: () -> Unit) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showCancelConfirm by remember { mutableStateOf(false) }
+    val infiniteTransition = rememberInfiniteTransition(label = "recording")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "recordPulse"
+    )
+
+    if (showCancelConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCancelConfirm = false },
+            icon = {
+                Icon(
+                    Icons.Default.StopCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text(stringResource(R.string.recording_cancel_confirm_title)) },
+            text = { Text(stringResource(R.string.recording_cancel_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = { showCancelConfirm = false; onCancel() }) {
+                    Text(
+                        stringResource(R.string.recording_cancel_confirm_discard),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelConfirm = false }) {
+                    Text(stringResource(R.string.recording_cancel_confirm_keep))
+                }
+            }
+        )
+    }
+
+    Box {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(
+                imageVector = Icons.Default.FiberManualRecord,
+                contentDescription = stringResource(R.string.recording_active_cd),
+                tint = MaterialTheme.colorScheme.error.copy(alpha = alpha),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.recording_save_now)) },
+                onClick = { menuExpanded = false; onSave() },
+                leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.recording_cancel)) },
+                onClick = { menuExpanded = false; showCancelConfirm = true },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.StopCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            )
+        }
+    }
 }
 
 private enum class ConnectionState { LIVE, DEMO, RECONNECTING, OFFLINE }
@@ -184,12 +328,12 @@ private fun ConnectionStatusBadge(state: ConnectionState) {
                     ), label = "livePulse"
                 )
                 val dotColor = Color(0xFF4CAF50)
-                Canvas(modifier = Modifier.size(7.dp)) {
+                Canvas(modifier = Modifier.size(11.dp)) {
                     drawCircle(color = dotColor.copy(alpha = alpha))
                 }
                 Text(
                     text = "Live",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -201,12 +345,12 @@ private fun ConnectionStatusBadge(state: ConnectionState) {
                     ), label = "demoPulse"
                 )
                 val dotColor = Color(0xFFAB47BC)
-                Canvas(modifier = Modifier.size(7.dp)) {
+                Canvas(modifier = Modifier.size(11.dp)) {
                     drawCircle(color = dotColor.copy(alpha = alpha))
                 }
                 Text(
                     text = stringResource(R.string.status_demo),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFAB47BC)
                 )
             }
@@ -227,7 +371,7 @@ private fun ConnectionStatusBadge(state: ConnectionState) {
                 )
                 Text(
                     text = "Verbinde...",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFFFA726)
                 )
             }
@@ -235,12 +379,12 @@ private fun ConnectionStatusBadge(state: ConnectionState) {
                 Icon(
                     imageVector = Icons.Default.WifiOff,
                     contentDescription = null,
-                    modifier = Modifier.size(11.dp),
+                    modifier = Modifier.size(17.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = stringResource(R.string.status_api_unreachable),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

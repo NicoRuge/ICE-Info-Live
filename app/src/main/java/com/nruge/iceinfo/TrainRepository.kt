@@ -1,16 +1,15 @@
 package com.nruge.iceinfo
 
 import com.nruge.iceinfo.model.*
+import com.nruge.iceinfo.util.ICE_HOSTS
+import com.nruge.iceinfo.util.buildIceHttpClient
 import com.nruge.iceinfo.util.calculateDelayMinutes
-import io.ktor.client.*
+import com.nruge.iceinfo.util.detectDirectionChanges
 import io.ktor.client.call.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.plugins.logging.*
+import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -31,30 +30,14 @@ object TrainRepository {
     private const val API_PATH_CONN   = "/api1/rs/tripInfo/connection"
     private const val API_PATH_CONFIG = "/bap/api/config"
 
-    // Try HTTPS first; many older ICE portals also serve plain HTTP
-    private val hosts = listOf("https://iceportal.de", "http://iceportal.de")
+    private val hosts = ICE_HOSTS
 
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
 
-    private val client = HttpClient(OkHttp) {
-        install(ContentNegotiation) {
-            json(json, contentType = io.ktor.http.ContentType.Any)
-        }
-        install(Logging) {
-            level = LogLevel.INFO
-        }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 5000
-            connectTimeoutMillis = 3000
-            socketTimeoutMillis  = 5000
-        }
-        defaultRequest {
-            header("Accept", "application/json")
-        }
-    }
+    private val client = buildIceHttpClient(json)
 
     /** GET with automatic HTTP fallback if HTTPS fails. */
     private suspend inline fun <reified T> getWithFallback(path: String): T {
@@ -137,6 +120,7 @@ object TrainRepository {
         var eta = "--:--"
         var delayMinutes = 0
         var track = ""
+        var trackChanged = false
         var delayReason = ""
         var distanceToNext = 0
         var distanceLastToNext = 0
@@ -158,6 +142,7 @@ object TrainRepository {
             val depDelay = calculateDelayMinutes(depActualMs, depScheduledMs)
 
             val stopTrack = stop.track?.actual ?: ""
+            val stopTrackChanged = stop.track?.changed ?: false
             val stopName = stop.station?.name ?: "?"
 
             val isCancelled = stop.cancelled || info.status == 3
@@ -166,9 +151,10 @@ object TrainRepository {
                 nextStopEva = stop.station?.evaNr ?: ""
                 nextFound = true
                 nextStopName = stopName
-                eta = formatTime(scheduledMs)
+                eta = formatTime(if (actualMs > 0L) actualMs else scheduledMs)
                 delayMinutes = stopDelay
                 track = stopTrack
+                trackChanged = stopTrackChanged
                 distanceToNext = info.distance
 
                 val distanceFromStart = info.distanceFromStart
@@ -186,6 +172,7 @@ object TrainRepository {
                 actualArrival = formatTime(actualMs),
                 delayMinutes = stopDelay,
                 track = stopTrack,
+                trackChanged = stopTrackChanged,
                 passed = passed,
                 isNext = isNext,
                 distanceFromStart = info.distanceFromStart,
@@ -195,7 +182,9 @@ object TrainRepository {
                 scheduledDeparture = formatTime(depScheduledMs),
                 actualDeparture = formatTime(depActualMs),
                 departureDelayMinutes = depDelay,
-                isCancelled = stop.cancelled || info.status == 3
+                isCancelled = stop.cancelled || info.status == 3,
+                latitude = stop.station?.geocoordinates?.latitude ?: 0.0,
+                longitude = stop.station?.geocoordinates?.longitude ?: 0.0
             ))
         }
 
@@ -209,10 +198,11 @@ object TrainRepository {
             eta = eta,
             delayMinutes = delayMinutes,
             track = track,
+            trackChanged = trackChanged,
             delayReason = delayReason,
             distanceToNext = distanceToNext,
             distanceLastToNext = distanceLastToNext,
-            stops = stopList,
+            stops = detectDirectionChanges(stopList),
             wagonClass = status.wagonClass,
             connectivity = status.connectivity?.currentState ?: "",
             nextConnectivity = status.connectivity?.nextState,
@@ -254,6 +244,7 @@ object TrainRepository {
                     destination = c.finalStation,
                     departure = formatTime(scheduledMs),
                     track = c.track?.actual ?: "",
+                    trackChanged = c.track?.changed ?: false,
                     delayMinutes = delayMin,
                     reachable = reachable,
                     transferMinutes = transferMinutes
@@ -275,7 +266,11 @@ object TrainRepository {
         }
     }
 
+    data class EndpointStatus(val label: String, val ok: Boolean, val detail: String, val body: String? = null)
+
     data class DebugData(
+        val statusRaw: String,
+        val statusError: String?,
         val tripRaw: String,
         val tripError: String?,
         val connectionRaw: String,
@@ -283,19 +278,61 @@ object TrainRepository {
         val evaNr: String
     )
 
+    fun endpointLabels(): List<String> = listOf(
+        "API::Status", "API::Trip", "API::Connections", "API::POIs", "API::Coaches"
+    )
+
+    suspend fun checkEndpoints(): List<EndpointStatus> = withContext(Dispatchers.IO) {
+        listOf(
+            "API::Status"      to API_PATH_STATUS,
+            "API::Trip"        to API_PATH_TRIP,
+            "API::Connections" to "$API_PATH_CONN/",
+            "API::POIs"        to "$API_PATH_POIS/0/0/0/0",
+            "API::Coaches"     to API_PATH_CONFIG,
+        ).map { (label, path) ->
+            var ok = false
+            var detail = "Fehler"
+            var body: String? = null
+            for (host in hosts) {
+                try {
+                    val resp = client.get("$host$path")
+                    ok = resp.status.isSuccess()
+                    detail = if (ok) "OK" else "HTTP ${resp.status.value}"
+                    body = resp.bodyAsText()
+                    break
+                } catch (e: Exception) {
+                    detail = (e.message ?: e.javaClass.simpleName).take(60)
+                }
+            }
+            EndpointStatus(label, ok, detail, body)
+        }
+    }
+
     suspend fun fetchDebugData(): DebugData = withContext(Dispatchers.IO) {
+        var statusRaw = ""
+        var statusError: String? = null
+        try {
+            statusRaw = getRawWithFallback(API_PATH_STATUS)
+            if (statusRaw.isBlank()) statusError = "Leere Antwort"
+        } catch (e: Exception) {
+            statusError = e.message ?: "Unbekannter Fehler"
+        }
+
         var tripRaw = ""
         var tripError: String? = null
         var evaNr = ""
-
         try {
             tripRaw = getRawWithFallback(API_PATH_TRIP)
-            try {
-                val tripResponse = json.decodeFromString<TripResponse>(tripRaw)
-                evaNr = tripResponse.trip?.stops
-                    ?.firstOrNull { it.info?.passed == false }
-                    ?.station?.evaNr ?: ""
-            } catch (_: Exception) {}
+            if (tripRaw.isBlank()) {
+                tripError = "Leere Antwort"
+            } else {
+                try {
+                    val tripResponse = json.decodeFromString<TripResponse>(tripRaw)
+                    evaNr = tripResponse.trip?.stops
+                        ?.firstOrNull { it.info?.passed == false }
+                        ?.station?.evaNr ?: ""
+                } catch (_: Exception) {}
+            }
         } catch (e: Exception) {
             tripError = e.message ?: "Unbekannter Fehler"
         }
@@ -312,7 +349,7 @@ object TrainRepository {
             connectionError = "EVA-Nummer nicht verfügbar"
         }
 
-        DebugData(tripRaw, tripError, connectionRaw, connectionError, evaNr)
+        DebugData(statusRaw, statusError, tripRaw, tripError, connectionRaw, connectionError, evaNr)
     }
 
     private fun formatTime(ms: Long): String {

@@ -61,19 +61,46 @@ object IceUtils {
     /** API liefert z.B. "ICE0304" oder "ICE09046" → gibt "304" bzw. "9046" zurück */
     fun parseTzNumber(tzn: String): String = tzn.removePrefix("ICE").trimStart('0')
 
-    fun getIceClassFromSeries(series: String, tzn: String? = null): String {
-        if (series == "412" && tzn != null) {
-            val tz = parseTzNumber(tzn).toIntOrNull() ?: return "ICE 4"
-            return when {
-                tz <= 9237 -> "ICE 4 (7-teilig)"
-                tz <= 9399 -> "ICE 4 (12-teilig)"
-                else       -> "ICE 4 (13-teilig)"
-            }
+    /**
+     * Leitet die Baureihe aus der Tz-Nummer ab, wenn die API das series-Feld
+     * nicht befüllt. Bekannte Tz-Bereiche laut DB-Flottendaten.
+     */
+    fun inferSeriesFromTzn(tzn: String): String {
+        val tz = parseTzNumber(tzn).toIntOrNull() ?: return ""
+        return when (tz) {
+            in 51..190    -> "401"   // ICE 1
+            in 201..260   -> "402"   // ICE 2
+            in 300..368   -> "403"   // ICE 3
+            in 4600..4699 -> "406"   // ICE 3M (PBKA)
+            in 4701..4717 -> "407"   // ICE 3 Velaro D
+            in 1101..1132,
+            in 1151..1178 -> "411"   // ICE T (7-teilig)
+            in 1501..1524 -> "415"   // ICE T (5-teilig)
+            in 8001..8099 -> "408"   // ICE 3neo
+            in 9001..9499 -> "412"   // ICE 4
+            in 601..624   -> "605"   // ICE TD
+            else          -> ""
         }
-        return SERIES_MAP[series]?.bezeichnung ?: ""
     }
 
-    fun getIceVmax(series: String): Int? = SERIES_MAP[series]?.vmaxKmh
+    fun getIceClassFromSeries(series: String, tzn: String? = null): String {
+        val effectiveSeries = series.ifEmpty { tzn?.let { inferSeriesFromTzn(it) } ?: "" }
+        if (effectiveSeries == "412" && tzn != null) {
+            val tz = parseTzNumber(tzn).toIntOrNull() ?: return "ICE 4"
+            return when (tz) {
+                in 9001..9137 -> "ICE 4 (12-teilig)"
+                in 9201..9250 -> "ICE 4 (7-teilig)"
+                in 9451..9499 -> "ICE 4 (13-teilig)"
+                else          -> "ICE 4"
+            }
+        }
+        return SERIES_MAP[effectiveSeries]?.bezeichnung ?: ""
+    }
+
+    fun getIceVmax(series: String, tzn: String? = null): Int? {
+        val effectiveSeries = series.ifEmpty { tzn?.let { inferSeriesFromTzn(it) } ?: "" }
+        return SERIES_MAP[effectiveSeries]?.vmaxKmh
+    }
 
     /** Gibt den offiziellen Taufnamen (Stadt) für eine Tz-Nummer zurück. */
     fun getTzName(tzn: String): TzNameEntry? = tzNames[parseTzNumber(tzn)]

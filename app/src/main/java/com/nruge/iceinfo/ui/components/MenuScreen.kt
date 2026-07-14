@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
@@ -15,31 +14,27 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.MenuCategory
 import com.nruge.iceinfo.model.MenuItem
 import kotlinx.coroutines.launch
 
-private const val IMAGE_BASE_URL = "https://iceportal.de/"
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuScreen(
     categories: List<MenuCategory>,
     isLoading: Boolean,
+    trainConnected: Boolean,
     onLoad: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(Unit) { onLoad() }
+    LaunchedEffect(trainConnected) { if (trainConnected) onLoad() }
 
     PullToRefreshBox(
         isRefreshing = isLoading && categories.isNotEmpty(),
@@ -63,10 +58,11 @@ fun MenuScreen(
 }
 
 @Composable
-private fun MenuContent(categories: List<MenuCategory>) {
+private fun MenuContent(
+    categories: List<MenuCategory>
+) {
     val categoryNames = remember(categories) { categories.map { it.title } }
 
-    // Each category = 1 stickyHeader + 1 card item = index step of 2
     val categoryFirstIndex = remember(categories) {
         var idx = 0
         categories.associate { cat ->
@@ -160,67 +156,6 @@ private fun MenuContent(categories: List<MenuCategory>) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun MenuItemRow(item: MenuItem) {
-    val contentAlpha = if (!item.visible) 0.38f else 1f
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = "$IMAGE_BASE_URL${item.imageUrl}",
-            contentDescription = item.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .alpha(contentAlpha)
-        )
-
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
-            )
-            if (item.subject.isNotBlank()) {
-                Text(
-                    text = item.subject,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            val keys = item.declarationKeys
-            if (keys.isNotEmpty()) {
-                Text(
-                    text = keys.joinToString(", "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha * 0.6f)
-                )
-            }
-        }
-
-        item.eurPrice?.let { price ->
-            Text(
-                text = "€ %.2f".format(price).replace('.', ','),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
-            )
         }
     }
 }
