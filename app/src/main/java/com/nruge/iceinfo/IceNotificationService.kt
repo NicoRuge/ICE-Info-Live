@@ -51,6 +51,7 @@ class IceNotificationService : Service() {
     private var targetStopEva: String? = null
     private var lastKnownStatus: TrainStatus? = null
     private var chipShowDelay: Boolean = false
+    private var liveUpdateApisUnavailable: Boolean = false
 
     private val connectingStatus: TrainStatus by lazy {
         TrainStatus(
@@ -206,11 +207,18 @@ class IceNotificationService : Service() {
 
 
     private fun buildNotification(status: TrainStatus): Notification {
-        return if (Build.VERSION.SDK_INT >= 36) {
-            buildLiveUpdateNotification(status)
-        } else {
-            buildLegacyNotification(status)
+        // Die Live-Update-APIs (ProgressStyle, setRequestPromotedOngoing, setShortCriticalText)
+        // sind in Android 16 hinter dem AConfig-Flag "api_rich_ongoing" versteckt. Auf Builds
+        // mit deaktiviertem Flag fehlen die Methoden trotz SDK_INT >= 36 im Framework
+        // (NoSuchMethodError), daher reicht der SDK-Check allein nicht.
+        if (Build.VERSION.SDK_INT >= 36 && !liveUpdateApisUnavailable) {
+            try {
+                return buildLiveUpdateNotification(status)
+            } catch (e: LinkageError) {
+                liveUpdateApisUnavailable = true
+            }
         }
+        return buildLegacyNotification(status)
     }
 
     private fun buildLegacyNotification(status: TrainStatus): Notification {

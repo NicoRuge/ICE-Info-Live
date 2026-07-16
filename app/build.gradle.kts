@@ -20,8 +20,8 @@ android {
         applicationId = "com.nruge.iceinfo"
         minSdk = 33
         targetSdk = 36
-        versionCode = 17
-        versionName = "6.2"
+        versionCode = 18
+        versionName = "6.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
