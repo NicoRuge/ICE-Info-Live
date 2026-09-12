@@ -40,7 +40,7 @@ data class ApiStop(
     val timetable: Timetable? = null,
     val track: Track? = null,
     val delayReasons: List<DelayReason>? = null,
-    val cancelled: Boolean = false  // evtl. auch status==3 — mit Debug-Report verifizieren
+    val cancelled: Boolean = false  // Ausfall kommt i.d.R. über info.status (siehe StopInfo)
 )
 
 @Serializable
@@ -61,6 +61,7 @@ data class StopInfo(
     val passed: Boolean = false,
     val distance: Int = 0,
     val distanceFromStart: Int = 0,
+    // 0 = regulärer Halt, 1 = entfällt, 2 = Zusatzhalt (verifiziert per Debug-Report 2026-07-19)
     val status: Int = 0
 )
 

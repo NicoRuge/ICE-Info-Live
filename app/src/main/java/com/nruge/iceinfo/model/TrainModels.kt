@@ -74,7 +74,9 @@ data class Departure(
     val delayMinutes: Int = 0,
     val platform: String = "",
     val platformChanged: Boolean = false,
-    val cancelled: Boolean = false
+    val cancelled: Boolean = false,
+    /** Geplante Abfahrt als Epoch-Millis; 0 = unbekannt (z.B. Demo-Daten). */
+    val plannedMs: Long = 0L
 )
 
 @Serializable

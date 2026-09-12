@@ -83,6 +83,7 @@ fun DebugDialog(
         val extAsync = async {
             listOf(
                 "Open-Meteo"       to "https://api.open-meteo.com/v1/forecast?latitude=52&longitude=13&hourly=temperature_2m&forecast_days=1",
+                "bahn.de Abfahrten" to "https://www.bahn.de/web/api/reiseloesung/abfahrten?ortExtId=8000105",
                 "transport.rest"   to "https://v6.db.transport.rest/stations/8000105",
                 "DB StaDa"         to "https://apis.deutschebahn.com/db-api-marketplace/apis/station-data/v2/stations?limit=1",
                 "DB FaSta"         to "https://apis.deutschebahn.com/db-api-marketplace/apis/fasta/v2/facilities?limit=1",

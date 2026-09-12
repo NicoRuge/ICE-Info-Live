@@ -1,0 +1,527 @@
+openapi: 3.1.0
+
+info:
+  title: ICE Info Stats API
+  version: "1.0"
+  description: |
+    Crowdsourcing-Schnittstelle der **ICE-Info-Live**-App: Nutzer teilen manuell
+    (pro Fahrt einzeln bestätigt) aufgezeichnete Fahrten. Der **Schreib-Dienst**
+    (`api.iceinfo.de`) nimmt sie per `POST /v1/journeys` entgegen und legt sie in
+    einer SQLite-Datei ab. Der **Anzeige-Dienst** (`stats.iceinfo.de`) rendert aus
+    derselben Datei read-only das öffentliche Statistik-Dashboard sowie pro
+    geteilter Fahrt eine Detailseite unter `/j/{hash}` (inkl. Open-Graph-Vorschaubild).
+
+    ## Architektur
+    Drei Container hinter einem Cloudflare Tunnel, gemeinsame `journeys.db`:
+
+    | Dienst      | Domain               | Port (lokal)      | Zweck                                  |
+    |-------------|----------------------|-------------------|----------------------------------------|
+    | `api`       | `api.iceinfo.de`     | `127.0.0.1:8091`  | Schreib-API (`/v1/*`), OAuth-Callback  |
+    | `dashboard` | `stats.iceinfo.de`   | `127.0.0.1:8093`  | Öffentliche HTML-Statistik + `/j/{hash}` |
+    | `datasette` | `data.iceinfo.de`    | `127.0.0.1:8092`  | Datasette-Tabellenansicht (Cloudflare Access) |
+
+    Die eingebaute FastAPI-`/docs` (Swagger UI) ist in beiden Diensten deaktiviert
+    (`docs_url=None`); diese Datei ist die gepflegte Spezifikation.
+
+    ## Dedup
+    Primärschlüssel ist `SHA-256(installId|trainType|trainNumber|origin|destination|date)`.
+    Erneutes Teilen derselben Fahrt überschreibt den Eintrag (`INSERT OR REPLACE`);
+    `delayMinutes` ist bewusst **nicht** Teil des Hashes, damit ein Re-Share eine
+    korrigierte Verspätung aktualisiert.
+  contact:
+    name: ICE Info
+    url: https://iceinfo.de
+
+servers:
+  - url: https://api.iceinfo.de
+    description: Schreib-API (Produktion, hinter Cloudflare)
+
+tags:
+  - name: Write API
+    description: Fahrten einliefern (api.iceinfo.de). Bearer-Token nötig.
+  - name: OAuth
+    description: Träwelling-OAuth-Redirect-Weiche für die App.
+  - name: Public Display
+    description: Öffentliche Anzeige (stats.iceinfo.de) — HTML-Seiten & Vorschaubilder.
+  - name: Health
+    description: Lebenszeichen der Dienste (ohne Auth).
+
+security: []
+
+paths:
+  # ────────────────────────────── Schreib-API (api.iceinfo.de) ──────────────────
+  /v1/journeys:
+    post:
+      tags: [Write API]
+      summary: Fahrt einliefern
+      description: |
+        Nimmt eine geteilte Fahrt entgegen und schreibt sie in die Datenbank.
+        Erfordert `Authorization: Bearer <API_TOKEN>`.
+
+        **Ausstieg vs. Endbahnhof:** `delayMinutes` ist am Ausstiegshalt des Nutzers
+        (`destination`) gemessen, `finalDelayMinutes` am Endbahnhof des Zuges
+        (`finalStation`). Ist `finalDelayIsPrognosis = true`, stieg der Nutzer vor
+        dem Endbahnhof aus — dann ist `finalDelayMinutes` nur die Prognose zum
+        Ausstiegszeitpunkt.
+
+        **Limits:** 20 Fahrten/Tag pro `installId`, 60 Requests/Stunde pro IP.
+      operationId: createJourney
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Journey'
+            examples:
+              vollstaendig:
+                summary: Vollständige Fahrt (App ≥ 6.4)
+                value:
+                  trainType: "ICE"
+                  trainNumber: "512"
+                  origin: "München Hbf"
+                  destination: "Berlin Hbf"
+                  date: "23.07.2026"
+                  delayMinutes: 14
+                  series: "412"
+                  installId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  appVersion: "6.4"
+                  departureTime: "14:02"
+                  arrivalTime: "18:47"
+                  durationMinutes: 285
+                  distanceKm: 623
+                  stopsCount: 5
+                  tzn: "ICE0304"
+                  finalStation: "Berlin Hbf"
+                  finalDelayMinutes: 14
+                  finalDelayIsPrognosis: false
+                  stops:
+                    - { name: "München Hbf", time: "14:02", delayMinutes: 0 }
+                    - { name: "Nürnberg Hbf", time: "15:08", delayMinutes: 3 }
+                    - { name: "Erfurt Hbf", time: "16:15", delayMinutes: 12, additional: true }
+                    - { name: "Halle (Saale) Hbf", time: "16:55", delayMinutes: 14, prognosis: true }
+                    - { name: "Berlin Hbf", time: "18:47", delayMinutes: 14, prognosis: true }
+              minimal:
+                summary: Minimalfelder (ältere App-Version)
+                value:
+                  trainType: "IC"
+                  trainNumber: "2045"
+                  origin: "Hamburg Hbf"
+                  destination: "Hannover Hbf"
+                  date: "23.07.2026"
+                  delayMinutes: 5
+                  installId: "a1b2c3d4e5f6"
+      responses:
+        '201':
+          description: Fahrt gespeichert (bzw. bestehende überschrieben).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyResponse'
+              example:
+                hash: "3f2c1a…64hex"
+        '401':
+          description: Fehlendes oder ungültiges Bearer-Token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Ungültiges Token" }
+        '422':
+          description: Validierungsfehler (FastAPI/Pydantic).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationError' }
+        '429':
+          description: |
+            Rate-Limit erreicht — entweder `Zu viele Anfragen` (> 60 Requests/Stunde
+            pro IP) oder `Tageslimit erreicht` (≥ 20 Fahrten/Tag pro `installId`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Tageslimit erreicht" }
+
+  /v1/health:
+    get:
+      tags: [Health]
+      summary: Lebenszeichen der Schreib-API
+      operationId: healthV1
+      responses:
+        '200':
+          description: Dienst läuft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Status' }
+              example: { status: "ok" }
+
+  /callback:
+    get:
+      tags: [OAuth]
+      summary: Träwelling-OAuth-Redirect an die App
+      description: |
+        HTTPS-Redirect-Weiche: Träwelling verlangt eine `https`-Redirect-URI. Dieser
+        Endpunkt leitet den Authorization-Code per **302** an den App-Deep-Link
+        `iceinfo://traewelling/callback` weiter (Query-String wird durchgereicht).
+        Bei PKCE ist der Code ohne den geräteseitigen `code_verifier` wertlos; der
+        Code wird bewusst nicht geloggt.
+      operationId: oauthCallback
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema: { type: string }
+          description: Von Träwelling zurückgegebener Authorization-Code.
+        - name: state
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '302':
+          description: Weiterleitung an den App-Deep-Link.
+          headers:
+            Location:
+              schema: { type: string }
+              example: "iceinfo://traewelling/callback?code=…&state=…"
+
+  # ────────────────────────────── Anzeige (stats.iceinfo.de) ────────────────────
+  /:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Public Display]
+      summary: Statistik-Dashboard (HTML)
+      description: |
+        Selbst-enthaltene HTML-Seite mit Aggregaten (Fahrten gesamt, Kilometer,
+        Ø/Summe Verspätung, Pünktlichkeit, Rekorde, häufigste & unpünktlichste Züge
+        und Strecken, Verspätungsmuster). Read-only, aktualisiert sich alle 5 Minuten
+        selbst (`<meta http-equiv="refresh" content="300">`). Keine Install-IDs oder
+        persönlichen Felder.
+      operationId: dashboard
+      responses:
+        '200':
+          description: HTML-Seite.
+          content:
+            text/html:
+              schema: { type: string }
+
+  /j/{hash}:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Public Display]
+      summary: Detailseite einer geteilten Fahrt (HTML)
+      description: |
+        Öffentlich abrufbare Detailseite einer einzelnen Fahrt (über einen nicht
+        erratbaren 64-stelligen Hash). Enthält Kacheln (Verspätung, Zeiten, Distanz,
+        Halte, Baureihe), den Fahrtverlauf als Timeline und Open-Graph-Tags für
+        Chat-Vorschaukarten. `noindex`. Unbekannte oder nicht (mehr) geteilte Fahrten
+        liefern ebenfalls **200** mit einer Hinweisseite.
+      operationId: journeyPage
+      parameters:
+        - $ref: '#/components/parameters/JourneyHash'
+      responses:
+        '200':
+          description: HTML-Seite (Fahrt, „nicht gefunden" oder „ungültiger Link").
+          content:
+            text/html:
+              schema: { type: string }
+
+  /j/{hash}/card.png:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Public Display]
+      summary: Open-Graph-Vorschaubild einer Fahrt (1200×630 PNG)
+      operationId: journeyCard
+      parameters:
+        - $ref: '#/components/parameters/JourneyHash'
+      responses:
+        '200':
+          description: PNG-Bild (Cache 24 h).
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              example: "public, max-age=86400"
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        '404':
+          description: Ungültiger Hash oder Fahrt nicht gefunden.
+
+  /fonts/{name}:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Public Display]
+      summary: Self-hosted App-Font
+      operationId: font
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [inter.ttf, spacegrotesk.ttf]
+          description: Nur diese beiden Dateinamen sind erlaubt.
+      responses:
+        '200':
+          description: TTF-Datei (immutable, 1 Jahr Cache).
+          content:
+            font/ttf:
+              schema: { type: string, format: binary }
+        '404':
+          description: Unbekannter Font-Name.
+
+  /api-status:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Public Display]
+      summary: Live-Status der Schreib-API (intern geprüft)
+      description: |
+        Das Dashboard fragt hierüber die Schreib-API (intern im Docker-Netz) ab und
+        färbt die Statusanzeige grün/rot. `ok = true`, wenn `/v1/health` mit 200
+        antwortet.
+      operationId: apiStatus
+      responses:
+        '200':
+          description: Status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                required: [ok]
+              example: { ok: true }
+
+  /health:
+    servers:
+      - url: https://stats.iceinfo.de
+        description: Öffentliches Dashboard
+    get:
+      tags: [Health]
+      summary: Lebenszeichen des Dashboards
+      operationId: healthDashboard
+      responses:
+        '200':
+          description: Dienst läuft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Status' }
+              example: { status: "ok" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Statisches, serverseitig gesetztes `API_TOKEN` (kein JWT). Header:
+        `Authorization: Bearer <API_TOKEN>`. Das Token liegt in `local.properties`
+        der App.
+
+  parameters:
+    JourneyHash:
+      name: hash
+      in: path
+      required: true
+      description: 64-stelliger Hex-Hash der Fahrt (SHA-256).
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{64}$'
+      example: "3f2c1abbccddeeff00112233445566778899aabbccddeeff0011223344556677"
+
+  schemas:
+    Stop:
+      type: object
+      description: Einzelner Halt im Fahrtverlauf.
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        time:
+          type: string
+          maxLength: 5
+          description: Uhrzeit "HH:MM" (leer erlaubt).
+          example: "15:08"
+        delayMinutes:
+          type: integer
+          minimum: -30
+          maximum: 600
+          default: 0
+        cancelled:
+          type: boolean
+          default: false
+          description: Halt entfällt.
+        additional:
+          type: boolean
+          default: false
+          description: Zusatzhalt.
+        prognosis:
+          type: boolean
+          default: false
+          description: Liegt hinter dem Ausstieg → Wert ist nur Prognose, nicht gemessen.
+      required: [name]
+
+    Journey:
+      type: object
+      description: |
+        Eine geteilte Fahrt. Felder ab `departureTime` sind optional (App ≥ 6.4);
+        ältere Clients lassen sie weg, fehlende Werte landen als `""`/`0` in der DB.
+      properties:
+        trainType:
+          type: string
+          minLength: 1
+          maxLength: 10
+          example: "ICE"
+        trainNumber:
+          type: string
+          minLength: 1
+          maxLength: 10
+          example: "512"
+        origin:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Einstiegsbahnhof des Nutzers.
+        destination:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Ausstiegsbahnhof des Nutzers (Bezugspunkt für delayMinutes).
+        date:
+          type: string
+          pattern: '^\d{2}\.\d{2}\.\d{4}$'
+          description: Fahrtdatum im Format DD.MM.YYYY.
+          example: "23.07.2026"
+        delayMinutes:
+          type: integer
+          minimum: -30
+          maximum: 600
+          description: Verspätung am Ausstiegshalt (destination).
+          example: 14
+        series:
+          type: string
+          maxLength: 10
+          default: ""
+          description: Baureihe, z. B. "412".
+        installId:
+          type: string
+          minLength: 8
+          maxLength: 64
+          description: Zufällige, nicht personenbezogene Installations-ID (Dedup & Missbrauchsschutz).
+        appVersion:
+          type: string
+          maxLength: 20
+          default: ""
+          example: "6.4"
+        departureTime:
+          type: string
+          maxLength: 5
+          default: ""
+          pattern: '^\d{2}:\d{2}$'
+          description: '"HH:MM" (leer erlaubt).'
+          example: "14:02"
+        arrivalTime:
+          type: string
+          maxLength: 5
+          default: ""
+          pattern: '^\d{2}:\d{2}$'
+          example: "18:47"
+        durationMinutes:
+          type: integer
+          minimum: 0
+          maximum: 2000
+          default: 0
+        distanceKm:
+          type: integer
+          minimum: 0
+          maximum: 3000
+          default: 0
+        stopsCount:
+          type: integer
+          minimum: 0
+          maximum: 60
+          default: 0
+        tzn:
+          type: string
+          maxLength: 12
+          default: ""
+          description: Triebzugnummer, z. B. "ICE0304".
+        finalStation:
+          type: string
+          maxLength: 80
+          default: ""
+          description: Endbahnhof des Zuges.
+        finalDelayMinutes:
+          type: integer
+          minimum: -30
+          maximum: 600
+          default: 0
+          description: Verspätung am Endbahnhof (ggf. Prognose, s. finalDelayIsPrognosis).
+        finalDelayIsPrognosis:
+          type: boolean
+          default: false
+          description: true → Nutzer stieg vor dem Endbahnhof aus; finalDelayMinutes ist nur Prognose.
+        stops:
+          type: array
+          maxItems: 80
+          default: []
+          items:
+            $ref: '#/components/schemas/Stop'
+      required:
+        - trainType
+        - trainNumber
+        - origin
+        - destination
+        - date
+        - delayMinutes
+        - installId
+
+    JourneyResponse:
+      type: object
+      properties:
+        hash:
+          type: string
+          description: SHA-256-Primärschlüssel der gespeicherten Fahrt (auch der /j/{hash}-Link).
+          example: "3f2c1abbccddeeff00112233445566778899aabbccddeeff0011223344556677"
+      required: [hash]
+
+    Status:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+      required: [status]
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+      required: [detail]
+
+    ValidationError:
+      type: object
+      description: FastAPI-Standardformat für 422-Validierungsfehler.
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  anyOf:
+                    - type: string
+                    - type: integer
+              msg: { type: string }
+              type: { type: string }

@@ -17,8 +17,14 @@ Bordportal des Zuges (`iceportal.de`) sowie mit öffentlichen Bahn-/Geo-APIs und
 - Anschlusszüge und Abfahrtstafeln am nächsten Halt
 - Bahnhofs-Services / Facilities (Aufzüge etc.)
 - Wetter am Zielort
-- Fahrtaufzeichnung (GPS-Track) mit GPX-Export und gespeicherter Fahrtenhistorie
+- Fahrtaufzeichnung (GPS-Track, Koordinaten auf 5 Nachkommastellen gerundet) mit GPX-Export,
+  gespeicherter Fahrtenhistorie (benennbar/editierbar: Grund, Ticketart, Preis, Sitzplatz,
+  Notizen, Baureihe), Gesamtkarte aller Tracks und Statistikübersicht
 - Persistente Live-Benachrichtigung und Home-Screen-Widget
+- Verspätungs-Crowdsourcing: einzelne gespeicherte Fahrten lassen sich **manuell** (per Button
+  + Bestätigungsdialog) anonym an eine eigene Statistik-API teilen; öffentliches Dashboard unter
+  `stats.iceinfo.de`. Übertragen werden nur Statistikfelder — **kein GPS-Track, keine
+  persönlichen Angaben** (Preis, Sitzplatz, Notizen bleiben lokal)
 
 Repo: https://github.com/NicoRuge/ICE-Info-Live · Entwickler: Nico Ruge
 
@@ -45,8 +51,9 @@ Repo: https://github.com/NicoRuge/ICE-Info-Live · Entwickler: Nico Ruge
 **SDK:** `minSdk 33`, `targetSdk 36`, `compileSdk 36`. Release-Build mit R8/Minify +
 Resource-Shrinking. App-Version siehe `app/build.gradle.kts` (`versionName` / `versionCode`).
 
-**Secrets:** `DB_CLIENT_ID` / `DB_CLIENT_SECRET` für die DB-Marketplace-APIs kommen aus
-`local.properties` (nicht eingecheckt) und werden via `BuildConfig` injiziert.
+**Secrets:** `DB_CLIENT_ID` / `DB_CLIENT_SECRET` (DB-Marketplace-APIs) und `STATS_API_TOKEN`
+(eigene Stats-API) kommen aus `local.properties` (nicht eingecheckt) und werden via
+`BuildConfig` injiziert.
 
 ## 3. Projektstruktur
 
@@ -73,20 +80,29 @@ app/src/main/
 └── res/                      ← values (de), values-en, values-night, drawable, xml/…
 ```
 
-### Screens (Bottom-Navigation, siehe `Navigation.kt`)
-`Home` (Status), `Stops`/Journey (Halte), `Map`, `Service` (Bahnhof), `Connections`
-(Anschlüsse), `Menu` (Bordrestaurant), `Journeys` (aufgezeichnete Fahrten).
+`StatsRepository.kt` (im Package-Root wie die anderen Repositories) kapselt den POST an die
+eigene Stats-API. Das Backend liegt getrennt vom App-Code im Top-Level-Verzeichnis `server/`
+(siehe Abschnitt 4a).
+
+### Screens (siehe `Navigation.kt`)
+Bottom-Navigation (nur bei Zug-WLAN/Demo sichtbar): `Home` (Zug, inkl. ausklappbarer
+Speisekarten-Sektion am Ende — lädt erst beim Aufklappen), `Stops` (Strecke, inkl. Karte),
+`Service` (Bahnhof), `Connections` (Anschlüsse + Abfahrtstafel), `Journeys` (aufgezeichnete
+Fahrten). Overlay über das Top-Bar-Menü: „Meine Fahrten" (Journeys-Overlay — bewusst auch
+**offline** erreichbar, da die Bottom-Navigation ohne Zug-WLAN ausgeblendet ist).
 
 ## 4. Genutzte externe APIs
 
 | Quelle | Basis-URL | Zweck | Auth |
 |--------|-----------|-------|------|
 | **ICE-Bordportal** | `http(s)://iceportal.de` | Live-Status, Trip-Info, POIs, Anschlüsse, Bordmenü, Bestellungen | keine (nur im Zug-WLAN erreichbar) |
-| **DB transport.rest** | `https://v6.db.transport.rest` | Abfahrtstafeln / Stationssuche | keine (öffentlich) |
+| **bahn.de Abfahrten** | `https://www.bahn.de/web/api/reiseloesung/abfahrten` | Abfahrtstafel (Primärquelle; Zeiten lokal Europe/Berlin ohne Offset) | keine |
+| **DB transport.rest** | `https://v6.db.transport.rest` | Abfahrtstafel-**Fallback** (community-gehostet, häufig Timeouts) / Stationssuche | keine (öffentlich) |
 | **DB Wagenreihung** | `https://www.bahn.de/web/api/reisebegleitung/wagenreihung/vehicle-sequence` | Wagenreihung / Sektoren | keine |
 | **DB API Marketplace** (StaDa + FaSta) | `https://apis.deutschebahn.com/db-api-marketplace/apis/...` | Bahnhofsdaten + Facilities (Aufzüge etc.) | `DB_CLIENT_ID` / `DB_CLIENT_SECRET` |
 | **Overpass (OSM)** | `https://overpass-api.de/api/interpreter` | Gleis-/Streckenfeatures (Tunnel, Brücken, Speed) | keine |
 | **Open-Meteo** | `https://api.open-meteo.com/v1/forecast` + `geocoding-api.open-meteo.com` | Wetter + Geocoding für Zielort | keine |
+| **ICE Info Stats API** (eigen) | `https://api.iceinfo.de/v1` | Crowdsourcing: manuell geteilte Fahrten für Verspätungsstatistik (`StatsRepository`); Server-Code unter `server/` (FastAPI + SQLite, Hetzner hinter Cloudflare Tunnel) | `STATS_API_TOKEN` aus `local.properties` |
 
 ### ICE-Bordportal-Endpunkte (relativ zu `iceportal.de`)
 - `/api1/rs/status` — Live-Status (Speed, Position, Verbindung)
@@ -106,6 +122,36 @@ eine selbstsignierte / unvollständige Zertifikatskette. Deshalb:
   **nicht** auf öffentliche Hosts ausweiten.
 - Ein geteilter `CookieJar` hält Session-Cookies, damit Menü-Abruf und Bestellung dieselbe
   Session nutzen.
+
+### 4a. Eigenes Backend (`server/`)
+
+Kleines, eigenständiges Backend für das Verspätungs-Crowdsourcing (nicht Teil des App-Builds).
+Läuft auf einem Hetzner-Server als Docker-Container hinter einem **Cloudflare Tunnel**
+(kein offener Port, HTTPS via Cloudflare). Drei Subdomains:
+
+| Domain | Dienst | Zweck | Zugriff |
+|--------|--------|-------|---------|
+| `api.iceinfo.de/v1` | FastAPI (`server/main.py`) | Schreib-API: nimmt geteilte Fahrten an (`POST /v1/journeys`, Bearer-Token) | Token (`STATS_API_TOKEN`) |
+| `stats.iceinfo.de` | FastAPI (`server/dashboard.py`) | Öffentliches Statistik-Dashboard (selbst-enthaltenes HTML, read-only) | öffentlich |
+| `data.iceinfo.de` | Datasette | Rohdaten-Ansicht der SQLite-DB | Cloudflare Access (Login) |
+
+- **Persistenz:** eine SQLite-Datei (`/data/journeys.db`) im WAL-Modus, geteilt über ein
+  Docker-Volume. Die API schreibt (`INSERT OR REPLACE`), Dashboard/Datasette lesen nur
+  (Dashboard mit `PRAGMA query_only`; eine reine `mode=ro`-Verbindung kann WAL aus einem
+  zweiten Prozess **nicht** lesen — Volume daher nicht `:ro` mounten).
+- **Dedup:** Der **Server** bildet den Hash `installId|trainType|trainNumber|origin|destination|date`
+  (SHA-256) als Primärschlüssel. Gleiche Fahrt derselben Installation → Overwrite (kein Duplikat);
+  verschiedene Nutzer im selben Zug → verschiedene Zeilen (bewusst, zwei Messungen).
+  `delayMinutes` ist **nicht** Teil des Hashes (Re-Share aktualisiert den Wert).
+- **Ausstieg vs. Endbahnhof:** `delayMinutes` ist am Ausstiegshalt des Nutzers gemessen;
+  `finalDelayMinutes`/`finalStation` am Zug-Endbahnhof. `finalDelayIsPrognosis = true` heißt,
+  der Nutzer stieg vorher aus → der Endwert ist nur die Prognose zum Ausstiegszeitpunkt.
+- **Deployment:** `docker compose up -d --build` im `server/`-Verzeichnis; Token in `server/.env`.
+  Details + Cloudflare-Schritte in `server/README.md`.
+
+Das DTO auf App-Seite (`StatsRepository.SharedJourneyDto`) und das Pydantic-Modell in
+`server/main.py` müssen feldkompatibel bleiben. Neue Felder additiv halten (optionale
+Pydantic-Felder + `ALTER TABLE`-Migration in `_init_db`), damit alte App-Versionen weiter posten.
 
 ## 5. Architektur-/Code-Konventionen
 
@@ -140,7 +186,8 @@ eine selbstsignierte / unvollständige Zertifikatskette. Deshalb:
 ```
 
 Vor dem Release-Build muss `local.properties` die `DB_CLIENT_ID`/`DB_CLIENT_SECRET` enthalten,
-sonst bleiben die DB-Marketplace-Features (Facilities) leer.
+sonst bleiben die DB-Marketplace-Features (Facilities) leer. Ohne `STATS_API_TOKEN` scheitert
+zudem das Fahrten-Teilen (API antwortet mit 401).
 
 ## 8. Hinweise für Änderungen
 
@@ -150,3 +197,7 @@ sonst bleiben die DB-Marketplace-Features (Facilities) leer.
   Strings in **beiden** `strings.xml`.
 - ICE-Portal-Requests immer über `buildIceHttpClient(...)` + `ICE_HOSTS`-Fallback laufen lassen,
   nicht direkt mit einem Standard-Client (sonst scheitert SSL im Zug).
+- Neues Feld an die Stats-API? → in **beiden** Seiten additiv ergänzen: `SharedJourneyDto`
+  (`StatsRepository.kt`) **und** Pydantic-Modell + Spalte + `ALTER TABLE`-Migration + INSERT in
+  `server/main.py`; Dashboard-Aggregat bei Bedarf in `server/dashboard.py`. Alte App-Versionen
+  dürfen das Feld weglassen (optional mit Default).

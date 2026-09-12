@@ -101,6 +101,7 @@ fun InfoDialog(onDismiss: () -> Unit) {
                             Text(stringResource(R.string.info_api_db_stada))
                             Text(stringResource(R.string.info_api_db_fasta))
                             Text(stringResource(R.string.info_api_db_wagenreihung))
+                            Text(stringResource(R.string.info_api_db_abfahrten))
                         }
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

@@ -59,6 +59,7 @@ fun AppTopBar(
     onShowInfo: () -> Unit,
     onShowChangelog: () -> Unit,
     onShowJourneys: () -> Unit,
+    onShowConnections: () -> Unit = {},
     onNavigateBack: (() -> Unit)? = null,
     showScrollDivider: Boolean = true,
     scrollBehavior: TopAppBarScrollBehavior? = null
@@ -93,7 +94,7 @@ fun AppTopBar(
         navigationIcon = {
             when {
                 onNavigateBack != null -> IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
                 isMockMode -> IconButton(onClick = onExitDemo) {
                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.demo_end))
@@ -199,10 +200,12 @@ fun AppTopBar(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Meine Fahrten") },
+                    text = { Text(stringResource(R.string.nav_journeys_menu)) },
                     onClick = { onShowJourneys(); menuExpanded = false },
                     leadingIcon = { Icon(Icons.Default.History, null) }
                 )
+                // Anschlüsse: wieder als Bottom-Tab, daher hier kein Menüeintrag mehr
+                // (Overlay-Mechanik in MainActivity bleibt für einfaches Zurückwechseln erhalten).
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.menu_settings)) },
                     onClick = { onShowSettings(); menuExpanded = false },
@@ -370,7 +373,7 @@ private fun ConnectionStatusBadge(state: ConnectionState) {
                     tint = Color(0xFFFFA726)
                 )
                 Text(
-                    text = "Verbinde...",
+                    text = stringResource(R.string.status_reconnecting),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFFFA726)
                 )

@@ -406,7 +406,9 @@ val sampleJourneys: List<SavedJourney> = listOf(
         durationMinutes = 379,
         stopsCount = 7,
         recordedGps = true,
-        trackPoints = buildTrackPoints(hamburgMuenchenWaypoints, intervalSec = 30)
+        trackPoints = buildTrackPoints(hamburgMuenchenWaypoints, intervalSec = 30),
+        tzn = "ICE8007",
+        series = "408"
     ),
     // Fahrt 2 – ICE 599 Frankfurt → Berlin, OHNE GPS
     SavedJourney(
@@ -425,7 +427,9 @@ val sampleJourneys: List<SavedJourney> = listOf(
         durationMinutes = 233,
         stopsCount = 3,
         recordedGps = false,
-        trackPoints = emptyList()
+        trackPoints = emptyList(),
+        tzn = "ICE9046",
+        series = "412"
     ),
     // Fahrt 3 – ICE 77 Köln → München, OHNE GPS, stark verspätet
     SavedJourney(
@@ -444,7 +448,9 @@ val sampleJourneys: List<SavedJourney> = listOf(
         durationMinutes = 296,
         stopsCount = 4,
         recordedGps = false,
-        trackPoints = emptyList()
+        trackPoints = emptyList(),
+        tzn = "ICE0304",
+        series = "403"
     )
 )
 private fun menuItem(id: Int, title: String, subject: String = "", imgPath: String, eurPrice: Double, @Suppress("UNUSED_PARAMETER") chfPrice: Double, decls: List<String> = emptyList(), visible: Boolean = true) = MenuItem(

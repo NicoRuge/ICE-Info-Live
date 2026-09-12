@@ -1,7 +1,10 @@
 package com.nruge.iceinfo.util
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.net.toUri
 import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.TrainStatus
 
@@ -44,4 +47,30 @@ fun shareTrainStatus(context: Context, status: TrainStatus) {
     context.startActivity(
         Intent.createChooser(intent, context.getString(R.string.share_trip_chooser))
     )
+}
+
+/** Öffnet das System-Share-Sheet mit einem einzelnen Link (text/plain). */
+fun shareLink(context: Context, url: String, chooserTitle: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, url)
+    }
+    context.startActivity(Intent.createChooser(intent, chooserTitle))
+}
+
+/** Öffnet eine URL im In-App-Browser (Custom Tab); Fallback auf den Standard-Browser. */
+fun openInAppBrowser(context: Context, url: String) {
+    val uri = url.toUri()
+    try {
+        CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .build()
+            .launchUrl(context, uri)
+    } catch (_: ActivityNotFoundException) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: ActivityNotFoundException) {
+            // Kein Browser installiert — nichts zu tun
+        }
+    }
 }

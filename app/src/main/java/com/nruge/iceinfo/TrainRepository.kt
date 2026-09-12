@@ -145,7 +145,7 @@ object TrainRepository {
             val stopTrackChanged = stop.track?.changed ?: false
             val stopName = stop.station?.name ?: "?"
 
-            val isCancelled = stop.cancelled || info.status == 3
+            val isCancelled = stop.cancelled || info.status == 1 || info.status == 3
             val isNext = !passed && !nextFound && !isCancelled
             if (isNext) {
                 nextStopEva = stop.station?.evaNr ?: ""
@@ -182,7 +182,7 @@ object TrainRepository {
                 scheduledDeparture = formatTime(depScheduledMs),
                 actualDeparture = formatTime(depActualMs),
                 departureDelayMinutes = depDelay,
-                isCancelled = stop.cancelled || info.status == 3,
+                isCancelled = isCancelled,
                 latitude = stop.station?.geocoordinates?.latitude ?: 0.0,
                 longitude = stop.station?.geocoordinates?.longitude ?: 0.0
             ))

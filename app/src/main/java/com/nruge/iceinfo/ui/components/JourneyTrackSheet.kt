@@ -22,11 +22,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.nruge.iceinfo.R
 import com.nruge.iceinfo.model.SavedJourney
 import com.nruge.iceinfo.model.TrackPoint
 import org.osmdroid.config.Configuration
@@ -55,6 +57,10 @@ fun JourneyTrackSheet(
 
     // Explizite Map-Höhe: Bildschirmhöhe minus Sheet-Overhead (Header + Legende + NavBar + DragHandle)
     val mapHeight = (LocalConfiguration.current.screenHeightDp * 0.68f).dp
+
+    // Strings für die Marker-Snippets im AndroidView-Lambda vorab auflösen
+    val departureSnippet = stringResource(R.string.track_departure, journey.departureTime)
+    val arrivalSnippet = stringResource(R.string.track_arrival, journey.arrivalTime)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -88,13 +94,14 @@ fun JourneyTrackSheet(
                     maxLines = 1
                 )
                 Text(
-                    text = "${journey.date}  ·  ${journey.trackPoints.size} GPS-Punkte",
+                    text = "${journey.date}  ·  " +
+                        stringResource(R.string.track_gps_points, journey.trackPoints.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Schließen")
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
             }
         }
 
@@ -135,14 +142,14 @@ fun JourneyTrackSheet(
                     Marker(mapView).also { m ->
                         m.position = geo.first()
                         m.title = journey.originStation
-                        m.snippet = "Abfahrt ${journey.departureTime}"
+                        m.snippet = departureSnippet
                         m.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         mapView.overlays.add(m)
                     }
                     Marker(mapView).also { m ->
                         m.position = geo.last()
                         m.title = journey.destinationStation
-                        m.snippet = "Ankunft ${journey.arrivalTime}"
+                        m.snippet = arrivalSnippet
                         m.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         mapView.overlays.add(m)
                     }

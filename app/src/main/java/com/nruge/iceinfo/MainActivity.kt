@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.PredictiveBackHandler
@@ -18,7 +19,9 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -87,7 +90,7 @@ import com.nruge.iceinfo.ui.InfoDialog
 import com.nruge.iceinfo.ui.MainViewModel
 import com.nruge.iceinfo.ui.OnboardingDialog
 import com.nruge.iceinfo.ui.RecordJourneyDialog
-import com.nruge.iceinfo.ui.SettingsSheet
+import com.nruge.iceinfo.ui.SettingsScreen
 import com.nruge.iceinfo.ui.StopSelectionDialog
 import com.nruge.iceinfo.ui.components.NoWifiScreen
 
@@ -286,6 +289,11 @@ class MainActivity : ComponentActivity() {
                 var showInfo by remember { mutableStateOf(false) }
                 var showChangelog by remember { mutableStateOf(false) }
                 var showSettings by remember { mutableStateOf(false) }
+                var crashReportingEnabled by remember {
+                    mutableStateOf(com.nruge.iceinfo.util.SettingsManager.isCrashReportingEnabled(context))
+                }
+                val traewellingAccount by com.nruge.iceinfo.TraewellingAuth.account.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { com.nruge.iceinfo.TraewellingAuth.init(context) }
                 var showDebug by remember { mutableStateOf(false) }
                 var showDemoSpeed by remember { mutableStateOf(false) }
                 
@@ -314,11 +322,19 @@ class MainActivity : ComponentActivity() {
                 val pagerState = rememberPagerState(pageCount = { navigationItems.size })
                 val coroutineScope = rememberCoroutineScope()
                 var showJourneys by remember { mutableStateOf(false) }
-                val currentRoute = if (showJourneys) com.nruge.iceinfo.ui.Screen.Journeys.route
-                                   else navigationItems[pagerState.currentPage].route
+                var showConnections by remember { mutableStateOf(false) }
+                val currentRoute = when {
+                    showJourneys -> com.nruge.iceinfo.ui.Screen.Journeys.route
+                    showConnections -> com.nruge.iceinfo.ui.Screen.Connections.route
+                    else -> navigationItems[pagerState.currentPage].route
+                }
                 val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-                BackHandler(enabled = showJourneys) { showJourneys = false }
+                BackHandler(enabled = showJourneys || showConnections || showSettings) {
+                    showJourneys = false
+                    showConnections = false
+                    showSettings = false
+                }
 
                 LaunchedEffect(currentRoute) {
                     scrollBehavior.state.contentOffset = 0f
@@ -386,15 +402,19 @@ class MainActivity : ComponentActivity() {
                             onShowInfo = { showInfo = true },
                             onShowChangelog = { showChangelog = true },
                             onShowJourneys = { showJourneys = true },
-                            onNavigateBack = if (showJourneys) { { showJourneys = false } } else null,
-                            showScrollDivider = currentRoute != com.nruge.iceinfo.ui.Screen.Menu.route,
+                            onShowConnections = { showConnections = true },
+                            onNavigateBack = if (showJourneys || showConnections || showSettings) {
+                                { showJourneys = false; showConnections = false; showSettings = false }
+                            } else null,
+                            // Journeys zeichnet die Linie selbst unter seinem Header
+                            showScrollDivider = currentRoute != com.nruge.iceinfo.ui.Screen.Journeys.route,
                             scrollBehavior = scrollBehavior
                         )
                     },
                     bottomBar = {
                         if ((trainStatus.isConnected || isMockMode || isWIFIonICEStatus) && !demoBackInProgress
                             && !noWifiOverlayVisible
-                            && currentRoute != com.nruge.iceinfo.ui.Screen.Journeys.route) {
+                            && !showJourneys && !showConnections && !showSettings) {
                             AppNavigationBar(
                                 currentRoute = currentRoute,
                                 enabled = true,
@@ -448,6 +468,7 @@ class MainActivity : ComponentActivity() {
                             AppNavigation(
                                     pagerState = pagerState,
                                     isJourneysVisible = showJourneys,
+                                    isConnectionsVisible = showConnections,
                                     innerPadding = innerPadding,
                                     trainStatus = trainStatus,
                                     pois = pois,
@@ -482,6 +503,7 @@ class MainActivity : ComponentActivity() {
                                     onLoadTrainStation = { eva, name -> viewModel.loadServiceStationFromTrain(eva, name) },
                                     savedJourneys = savedJourneys,
                                     onDeleteJourney = { viewModel.deleteJourney(it) },
+                                    onUpdateJourney = { viewModel.updateJourney(it) },
                                     isRecording = isRecording,
                                     liveRecording = liveRecording,
                                     onStartRecording = { viewModel.requestRecording() },
@@ -489,8 +511,7 @@ class MainActivity : ComponentActivity() {
                                     onImportJourneys = { uri, cb -> viewModel.importJourneys(uri, cb) },
                                     menuItems = menuItems,
                                     isMenuLoading = isMenuLoading,
-                                    onLoadMenu = { viewModel.fetchMenuIfNeeded() },
-                                    onRefreshMenu = { viewModel.refreshMenu() }
+                                    onLoadMenu = { viewModel.fetchMenuIfNeeded() }
                                 )
                             // NoWifiScreen als Overlay wenn nicht verbunden und nicht auf Journeys-Screen
                             AnimatedVisibility(
@@ -557,6 +578,61 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+
+                            // Overlay: Einstellungen — Vollbild-Seite über das Top-Bar-Menü
+                            // (Zurück-Pfeil in der geteilten AppTopBar, siehe onNavigateBack).
+                            AnimatedVisibility(
+                                visible = showSettings,
+                                enter = if (reducedMotion) fadeIn() else
+                                    slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+                                exit = if (reducedMotion) fadeOut() else
+                                    slideOutHorizontally(tween(250)) { it } + fadeOut(tween(150))
+                            ) {
+                                SettingsScreen(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                                        .padding(innerPadding),
+                                    appTheme = appTheme,
+                                    onThemeChange = {
+                                        appTheme = it
+                                        com.nruge.iceinfo.util.SettingsManager.setAppTheme(context, it.name)
+                                    },
+                                    isMockMode = isMockMode,
+                                    showDemoSpeed = showDemoSpeed,
+                                    onToggleDemoSpeed = { showDemoSpeed = it },
+                                    reducedMotion = reducedMotion,
+                                    onToggleReducedMotion = { viewModel.setReducedMotion(it) },
+                                    language = com.nruge.iceinfo.util.SettingsManager.getLanguage(context),
+                                    onLanguageChange = {
+                                        com.nruge.iceinfo.util.SettingsManager.setLanguage(context, it)
+                                        showSettings = false
+                                    },
+                                    crashReportingEnabled = crashReportingEnabled,
+                                    onToggleCrashReporting = { enabled ->
+                                        crashReportingEnabled = enabled
+                                        com.nruge.iceinfo.util.SettingsManager.setCrashReportingEnabled(context, enabled)
+                                        runCatching {
+                                            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+                                                .isCrashlyticsCollectionEnabled = enabled
+                                        }
+                                    },
+                                    onDebug = {
+                                        showSettings = false
+                                        showDebug = true
+                                    },
+                                    traewellingConnected = traewellingAccount != null,
+                                    traewellingUsername = traewellingAccount?.username,
+                                    onConnectTraewelling = {
+                                        context.startActivity(
+                                            com.nruge.iceinfo.TraewellingAuth.buildAuthorizeIntent(context)
+                                        )
+                                    },
+                                    onDisconnectTraewelling = {
+                                        com.nruge.iceinfo.TraewellingAuth.disconnect(context)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -564,8 +640,26 @@ class MainActivity : ComponentActivity() {
                 if (showRecordingConsent) {
                     RecordJourneyDialog(
                         status = trainStatus,
+                        isRecording = isRecording,
+                        traewellingConnected = traewellingAccount != null,
                         onRecord = { recordGps -> viewModel.startRecording(recordGps) },
-                        onDecline = { viewModel.declineRecording() }
+                        onCheckIn = { exitStop ->
+                            coroutineScope.launch {
+                                val msg = when (val r = com.nruge.iceinfo.TraewellingRepository
+                                    .checkIn(context, trainStatus, exitStop)) {
+                                    com.nruge.iceinfo.TraewellingRepository.CheckInResult.Success ->
+                                        context.getString(R.string.checkin_success)
+                                    com.nruge.iceinfo.TraewellingRepository.CheckInResult.NotConnected ->
+                                        context.getString(R.string.checkin_not_connected)
+                                    com.nruge.iceinfo.TraewellingRepository.CheckInResult.TrainNotFound ->
+                                        context.getString(R.string.checkin_train_not_found)
+                                    is com.nruge.iceinfo.TraewellingRepository.CheckInResult.Failure ->
+                                        r.message ?: context.getString(R.string.checkin_failed)
+                                }
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        onDismiss = { viewModel.declineRecording() }
                     )
                 }
 
@@ -579,43 +673,6 @@ class MainActivity : ComponentActivity() {
 
                 if (showWhatsNew) {
                     WhatsNewDialog(onDismiss = { showWhatsNew = false })
-                }
-
-                if (showSettings) {
-                    var crashReportingEnabled by remember {
-                        mutableStateOf(com.nruge.iceinfo.util.SettingsManager.isCrashReportingEnabled(context))
-                    }
-                    SettingsSheet(
-                        appTheme = appTheme,
-                        onThemeChange = {
-                            appTheme = it
-                            com.nruge.iceinfo.util.SettingsManager.setAppTheme(context, it.name)
-                        },
-                        isMockMode = isMockMode,
-                        showDemoSpeed = showDemoSpeed,
-                        onToggleDemoSpeed = { showDemoSpeed = it },
-                        reducedMotion = reducedMotion,
-                        onToggleReducedMotion = { viewModel.setReducedMotion(it) },
-                        crashReportingEnabled = crashReportingEnabled,
-                        onToggleCrashReporting = { enabled ->
-                            crashReportingEnabled = enabled
-                            com.nruge.iceinfo.util.SettingsManager.setCrashReportingEnabled(context, enabled)
-                            runCatching {
-                                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-                                    .isCrashlyticsCollectionEnabled = enabled
-                            }
-                        },
-                        language = com.nruge.iceinfo.util.SettingsManager.getLanguage(context),
-                        onLanguageChange = {
-                            com.nruge.iceinfo.util.SettingsManager.setLanguage(context, it)
-                            showSettings = false
-                        },
-                        onDebug = {
-                            showSettings = false
-                            showDebug = true
-                        },
-                        onDismiss = { showSettings = false }
-                    )
                 }
 
                 if (showDebug) {

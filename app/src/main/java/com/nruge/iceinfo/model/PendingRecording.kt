@@ -30,5 +30,11 @@ data class PendingRecording(
     val destinationScheduledArrivalMs: Long = 0L,
     val lastDelayMinutes: Int = 0,
     val lastPassedCount: Int = 0,
-    val lastDistanceFromStart: Int = 0
+    val lastDistanceFromStart: Int = 0,
+    // Kompletter Fahrtverlauf (Stand des letzten Polls) für den Offline-Abschluss
+    val stops: List<JourneyStop> = emptyList(),
+    // Automatisch bei Aufzeichnungsstart erfasst
+    val tzn: String = "",
+    val series: String = "",
+    val seat: String = ""
 )

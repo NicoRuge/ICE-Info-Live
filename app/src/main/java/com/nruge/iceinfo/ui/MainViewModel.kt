@@ -168,7 +168,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val destinationScheduledArrivalMs: Long = 0L,
         var lastDelayMinutes: Int = 0,
         var lastPassedCount: Int = 0,
-        var lastDistanceFromStart: Int = 0
+        var lastDistanceFromStart: Int = 0,
+        // Kompletter Fahrtverlauf, bei jedem Poll aktualisiert (für Offline-Abschluss)
+        var lastStops: List<com.nruge.iceinfo.model.JourneyStop> = emptyList(),
+        // Automatisch bei Aufzeichnungsstart erfasst
+        val tzn: String = "",
+        val series: String = "",
+        val seat: String = ""
     ) {
         fun toPending() = PendingRecording(
             id = id,
@@ -190,13 +196,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             destinationScheduledArrivalMs = destinationScheduledArrivalMs,
             lastDelayMinutes = lastDelayMinutes,
             lastPassedCount = lastPassedCount,
-            lastDistanceFromStart = lastDistanceFromStart
+            lastDistanceFromStart = lastDistanceFromStart,
+            stops = lastStops,
+            tzn = tzn,
+            series = series,
+            seat = seat
         )
     }
 
     private var activeRecording: ActiveRecording? = null
     private var wasConnected = false
     private var lastCheckpointMs = 0L
+    // Merkt sich, ob die laufende Aufzeichnung den Foreground-Service selbst gestartet
+    // hat. Nur dann wird er beim Beenden wieder gestoppt — eine vom Nutzer manuell
+    // aktivierte Live-Notification bleibt unberührt.
+    private var recordingStartedService = false
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
@@ -520,15 +534,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startRecording(recordGps: Boolean = false) {
-        _showRecordingConsent.value = false
+        // Dialog bewusst NICHT schließen — er bleibt offen, damit der Nutzer im selben
+        // Dialog noch über einen Träwelling-Check-in entscheiden kann. Das Schließen
+        // übernimmt declineRecording() (Schließen-Button / Scrim).
         val status = _trainStatus.value
         if (!status.isConnected) return
+        if (_isRecording.value) return
         val targetEva = status.targetStopEva
         val destinationStop = targetEva?.let { eva -> status.stops.find { it.evaNr == eva && !it.passed } }
             ?: status.stops.lastOrNull()
         val originStop = status.stops.lastOrNull { it.passed }
             ?: status.stops.firstOrNull()
         _isRecording.value = true
+        ensureServiceForRecording()
         val rec = ActiveRecording(
             trainType = status.trainType,
             trainNumber = status.trainNumber,
@@ -543,7 +561,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             recordGps = recordGps,
             destinationScheduledArrivalMs = destinationStop?.scheduledArrivalMs ?: 0L,
             lastDelayMinutes = destinationStop?.delayMinutes ?: 0,
-            lastDistanceFromStart = originStop?.distanceFromStart ?: 0
+            lastDistanceFromStart = originStop?.distanceFromStart ?: 0,
+            tzn = status.tzn,
+            series = status.series,
+            // Sitzplatz aus der Wagen-/Platzwahl übernehmen, falls gesetzt
+            seat = listOfNotNull(
+                _selectedCoach.value?.let { "Wg. $it" },
+                _seatNumber.value.takeIf { it.isNotBlank() }?.let { "Pl. $it" }
+            ).joinToString(", ")
         )
         activeRecording = rec
         maybeCheckpoint(force = true)
@@ -572,8 +597,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Speed tracken
         if (status.speed > rec.topSpeedKmh) rec.topSpeedKmh = status.speed
         rec.speedSamples.add(status.speed)
-        // GPS-Spur aufzeichnen
-        if (rec.recordGps && status.latitude != 0.0 && status.longitude != 0.0) {
+        // GPS-Spur aufzeichnen. Im Stand (0 km/h) nur den ersten Punkt speichern,
+        // sonst bläht jeder Halt die Spur mit identischen Punkten auf.
+        val lastPoint = rec.trackPoints.lastOrNull()
+        val standingStill = status.speed == 0 && lastPoint != null && lastPoint.speedKmh == 0
+        if (rec.recordGps && status.latitude != 0.0 && status.longitude != 0.0 && !standingStill) {
             val secondsFromStart = ((System.currentTimeMillis() - rec.startMs) / 1000L).toInt()
             rec.trackPoints.add(
                 TrackPoint(
@@ -581,7 +609,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     lon = status.longitude,
                     speedKmh = status.speed,
                     secondsFromStart = secondsFromStart
-                )
+                ).rounded()
             )
         }
         // Live-State aktualisieren
@@ -596,11 +624,64 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         rec.lastDelayMinutes = destinationStop?.delayMinutes ?: status.delayMinutes
         rec.lastPassedCount = status.stops.count { it.passed }
         rec.lastDistanceFromStart = status.actualPosition
+        // Kompletten Fahrtverlauf mitführen (Zusatz-/Ausfallhalte, aktuelle Verspätungen)
+        if (status.stops.isNotEmpty()) rec.lastStops = captureStops(status)
         maybeCheckpoint()
         // Prüfen ob Ziel-Halt erreicht
         if (destinationStop?.passed == true) {
             finishRecording(status, destinationStop)
         }
+    }
+
+    private data class FinalDelayInfo(
+        val station: String,
+        val delayMinutes: Int,
+        val isPrognosis: Boolean
+    )
+
+    /**
+     * Ermittelt die Verspätung am Endbahnhof des Zuges relativ zum Ausstiegshalt
+     * des Nutzers ([exitEva]/[exitDelay]). Ist der Ausstieg zugleich der Endbahnhof,
+     * ist der Wert die tatsächliche Ankunftsverspätung; sonst die aktuelle Prognose.
+     */
+    /**
+     * Kompletter Fahrtverlauf des Zuges als Halteliste, Stand des aktuellen Status.
+     * Wird während der Fahrt bei jedem Poll neu erfasst (Zusatz-/Ausfall-Halte,
+     * aktuelle Verspätungen) und im Pending-Snapshot mitgeführt. Nach dem Ausstieg
+     * friert der zuletzt erfasste Stand ein.
+     */
+    private fun captureStops(status: TrainStatus, exitEva: String = ""): List<com.nruge.iceinfo.model.JourneyStop> {
+        val exitIdx = if (exitEva.isBlank()) -1 else status.stops.indexOfFirst { it.evaNr == exitEva }
+        return status.stops.mapIndexed { i, s ->
+            com.nruge.iceinfo.model.JourneyStop(
+                name = s.name,
+                time = s.scheduledArrival.ifEmpty { s.scheduledDeparture },
+                delayMinutes = s.delayMinutes,
+                cancelled = s.isCancelled,
+                additional = s.isAdditional,
+                prognosis = exitIdx >= 0 && i > exitIdx
+            )
+        }
+    }
+
+    /** Markiert Halte hinter dem Ausstieg (per Name) als Prognose — für den Offline-Abschluss. */
+    private fun markPrognosisAfter(
+        stops: List<com.nruge.iceinfo.model.JourneyStop>,
+        exitName: String
+    ): List<com.nruge.iceinfo.model.JourneyStop> {
+        val idx = stops.indexOfLast { it.name == exitName }
+        return if (idx < 0) stops
+        else stops.mapIndexed { i, s -> if (i > idx) s.copy(prognosis = true) else s }
+    }
+
+    private fun computeFinalDelay(status: TrainStatus, exitEva: String, exitDelay: Int): FinalDelayInfo {
+        val finalStop = status.stops.lastOrNull { !it.isCancelled }
+        val isFinal = finalStop != null && finalStop.evaNr.isNotBlank() && finalStop.evaNr == exitEva
+        return FinalDelayInfo(
+            station = finalStop?.name ?: status.destination,
+            delayMinutes = if (isFinal) exitDelay else (finalStop?.delayMinutes ?: exitDelay),
+            isPrognosis = !isFinal
+        )
     }
 
     private fun finishRecording(status: TrainStatus, destinationStop: com.nruge.iceinfo.model.TrainStop) {
@@ -610,6 +691,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val avgSpeed = if (rec.speedSamples.isNotEmpty()) rec.speedSamples.average().toInt() else 0
         val distanceKm = (destinationStop.distanceFromStart - rec.originDistanceFromStart) / 1000
         val arrivalTime = destinationStop.actualArrival.ifEmpty { destinationStop.scheduledArrival }
+        val finalDelay = computeFinalDelay(status, destinationStop.evaNr, destinationStop.delayMinutes)
         val journey = SavedJourney(
             id = rec.id,
             trainType = rec.trainType,
@@ -626,7 +708,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             durationMinutes = durationMinutes,
             stopsCount = rec.stopsCount,
             recordedGps = rec.recordGps,
-            trackPoints = rec.trackPoints.toList()
+            trackPoints = rec.trackPoints.toList(),
+            tzn = rec.tzn,
+            series = rec.series,
+            seat = rec.seat,
+            finalStation = finalDelay.station,
+            finalDelayMinutes = finalDelay.delayMinutes,
+            finalDelayIsPrognosis = finalDelay.isPrognosis,
+            stops = captureStops(status, destinationStop.evaNr)
         )
         persistFinishedJourney(journey)
     }
@@ -638,42 +727,113 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveRecordingNow() {
         val rec = activeRecording ?: return
-        val status = _trainStatus.value
+        val cachedStatus = _trainStatus.value
         stopRecordingState()
 
         // Ohne Zug-WLAN keine verlässlichen Live-Daten → letzten bekannten Stand nutzen
-        if (!status.isConnected) {
+        if (!cachedStatus.isConnected) {
             persistFinishedJourney(buildOfflineJourney(rec.toPending()))
             return
         }
 
-        val now = java.time.LocalTime.now()
-            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-        val lastPassedStop = status.stops.lastOrNull { it.passed }
-        val currentDistanceFromStart = lastPassedStop?.distanceFromStart ?: status.stops
-            .firstOrNull()?.distanceFromStart ?: 0
-        val distanceKm = (currentDistanceFromStart - rec.originDistanceFromStart) / 1000
-        val durationMinutes = ((System.currentTimeMillis() - rec.startMs) / 60_000L).toInt()
-        val avgSpeed = if (rec.speedSamples.isNotEmpty()) rec.speedSamples.average().toInt() else 0
-        val journey = SavedJourney(
-            id = rec.id,
-            trainType = rec.trainType,
-            trainNumber = rec.trainNumber,
-            originStation = rec.originStation,
-            destinationStation = lastPassedStop?.name ?: rec.destinationStation,
-            date = rec.date,
-            departureTime = rec.departureTime,
-            arrivalTime = now,
-            delayMinutes = lastPassedStop?.delayMinutes ?: 0,
-            distanceKm = distanceKm,
-            topSpeedKmh = rec.topSpeedKmh,
-            avgSpeedKmh = avgSpeed,
-            durationMinutes = durationMinutes,
-            stopsCount = status.stops.count { it.passed },
-            recordedGps = rec.recordGps,
-            trackPoints = rec.trackPoints.toList()
-        )
-        persistFinishedJourney(journey)
+        viewModelScope.launch {
+            // _trainStatus.value kann bis zu einem Poll-Zyklus veraltet sein: Der
+            // Poll-Loop übernimmt einen einzelnen fehlgeschlagenen Fetch NICHT sofort
+            // als "getrennt" (Flackerschutz), sondern hält den letzten erfolgreichen
+            // Snapshot. Genau beim Einfahren in den Bahnhof (Türen, WLAN-Handover)
+            // fällt so oft ein Poll aus — der Cache zeigt dann noch den Zustand kurz
+            // VOR Erreichen des Halts (actualPosition/actualArrival noch nicht
+            // gesetzt), wodurch reachedNext unten fälschlich false wird und der
+            // vorherige statt des aktuellen Bahnhofs als Ausstieg gewertet wird.
+            // Deshalb hier einen frischen Fetch statt des Caches verwenden.
+            val fresh = TrainRepository.fetchTrainStatus()
+            val status = if (fresh.isConnected)
+                applyDirectionChanges(fresh.copy(targetStopEva = cachedStatus.targetStopEva))
+            else cachedStatus
+
+            val now = java.time.LocalTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val lastPassedStop = status.stops.lastOrNull { it.passed }
+            val nextStop = status.stops.firstOrNull { it.isNext }
+            // Beim manuellen Speichern steht der Zug in aller Regel im Ausstiegsbahnhof.
+            // Die ICE-API markiert einen Halt aber erst als "passed", wenn der Zug dort
+            // wieder abfährt (an Endbahnhöfen nie) — dann liefert lastPassed noch die
+            // Station davor. Hat der Zug den nächsten Halt bereits erreicht (Position dort
+            // erreicht ODER Zug hält mit gesetzter Ist-Ankunft), gilt DIESER als Ausstieg.
+            val reachedNext = nextStop != null && (
+                nextStop.distanceFromStart in 1..status.actualPosition ||
+                (status.speed == 0 && nextStop.actualArrival.isNotEmpty())
+            )
+            val exitStop = if (reachedNext) nextStop else lastPassedStop
+            val currentDistanceFromStart = exitStop?.distanceFromStart
+                ?: status.stops.firstOrNull()?.distanceFromStart ?: 0
+            val distanceKm = (currentDistanceFromStart - rec.originDistanceFromStart) / 1000
+            val durationMinutes = ((System.currentTimeMillis() - rec.startMs) / 60_000L).toInt()
+            val avgSpeed = if (rec.speedSamples.isNotEmpty()) rec.speedSamples.average().toInt() else 0
+            val finalDelay = computeFinalDelay(
+                status,
+                exitStop?.evaNr ?: "",
+                exitStop?.delayMinutes ?: 0
+            )
+            val arrivalTime = if (reachedNext && exitStop != null)
+                exitStop.actualArrival.ifEmpty { exitStop.scheduledArrival }.ifEmpty { now }
+            else now
+            // Erreichter Ausstiegshalt zählt als absolvierter Halt mit.
+            val passedCount = status.stops.count { it.passed }
+            val journey = SavedJourney(
+                id = rec.id,
+                trainType = rec.trainType,
+                trainNumber = rec.trainNumber,
+                originStation = rec.originStation,
+                destinationStation = exitStop?.name ?: rec.destinationStation,
+                date = rec.date,
+                departureTime = rec.departureTime,
+                arrivalTime = arrivalTime,
+                delayMinutes = exitStop?.delayMinutes ?: 0,
+                distanceKm = distanceKm,
+                topSpeedKmh = rec.topSpeedKmh,
+                avgSpeedKmh = avgSpeed,
+                durationMinutes = durationMinutes,
+                stopsCount = if (reachedNext) passedCount + 1 else passedCount,
+                recordedGps = rec.recordGps,
+                trackPoints = rec.trackPoints.toList(),
+                tzn = rec.tzn,
+                series = rec.series,
+                seat = rec.seat,
+                finalStation = finalDelay.station,
+                finalDelayMinutes = finalDelay.delayMinutes,
+                finalDelayIsPrognosis = finalDelay.isPrognosis,
+                stops = captureStops(status, exitStop?.evaNr ?: "")
+            )
+            persistFinishedJourney(journey)
+        }
+    }
+
+    /**
+     * Startet den Foreground-Service für die Dauer der Aufzeichnung. Er hält den
+     * Prozess auf Vordergrund-Priorität, damit ihn das System im Standby/Doze nicht
+     * einfriert und die Poll-Schleife (und damit die GPS-Aufzeichnung) weiterläuft.
+     * Läuft der Service bereits (vom Nutzer aktivierte Live-Notification), bleibt er
+     * unverändert und wird beim Beenden der Aufzeichnung nicht gestoppt.
+     */
+    private fun ensureServiceForRecording() {
+        if (com.nruge.iceinfo.IceNotificationService.isRunning.value) return
+        val app = getApplication<android.app.Application>()
+        val intent = android.content.Intent(app, com.nruge.iceinfo.IceNotificationService::class.java)
+        runCatching { app.startForegroundService(intent) }
+            .onSuccess { recordingStartedService = true }
+            .onFailure { android.util.Log.e("MainViewModel", "startForegroundService failed: ${it.message}") }
+    }
+
+    /** Stoppt den Service wieder — aber nur, wenn ihn die Aufzeichnung selbst gestartet hat. */
+    private fun releaseServiceForRecording() {
+        if (!recordingStartedService) return
+        recordingStartedService = false
+        val app = getApplication<android.app.Application>()
+        val intent = android.content.Intent(app, com.nruge.iceinfo.IceNotificationService::class.java).apply {
+            action = com.nruge.iceinfo.IceNotificationService.ACTION_STOP
+        }
+        runCatching { app.startService(intent) }
     }
 
     /** Beendet den Live-Aufzeichnungszustand, ohne zu speichern. */
@@ -681,6 +841,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         activeRecording = null
         _isRecording.value = false
         _liveRecording.value = null
+        releaseServiceForRecording()
     }
 
     /** Fahrt speichern und den persistierten Zwischenstand entfernen. */
@@ -750,7 +911,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             durationMinutes = ((endMs - p.startMs) / 60_000L).toInt().coerceAtLeast(0),
             stopsCount = if (reachedDestination) p.stopsCount else p.lastPassedCount,
             recordedGps = p.recordGps,
-            trackPoints = p.trackPoints
+            trackPoints = p.trackPoints,
+            tzn = p.tzn,
+            series = p.series,
+            seat = p.seat,
+            stops = markPrognosisAfter(p.stops, p.destinationStation)
         )
     }
 
@@ -785,9 +950,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             destinationScheduledArrivalMs = p.destinationScheduledArrivalMs,
             lastDelayMinutes = p.lastDelayMinutes,
             lastPassedCount = p.lastPassedCount,
-            lastDistanceFromStart = p.lastDistanceFromStart
+            lastDistanceFromStart = p.lastDistanceFromStart,
+            lastStops = p.stops,
+            tzn = p.tzn,
+            series = p.series,
+            seat = p.seat
         )
         _isRecording.value = true
+        ensureServiceForRecording()
         _liveRecording.value = LiveRecordingState(
             trainType = p.trainType,
             trainNumber = p.trainNumber,
@@ -808,6 +978,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             JourneyRepository.deleteJourney(getApplication(), id)
             _journeys.value = _journeys.value.filter { it.id != id }
+        }
+    }
+
+    fun updateJourney(journey: SavedJourney) {
+        viewModelScope.launch {
+            JourneyRepository.updateJourney(getApplication(), journey)
+            _journeys.value = _journeys.value.map {
+                if (it.id == journey.id) journey else it
+            }
         }
     }
 
@@ -958,7 +1137,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun fetchDeparturesForStop(stop: TrainStop): List<Departure> {
         if (stop.evaNr.isBlank() || stop.scheduledArrivalMs <= 0L) return emptyList()
         val arrivalMs = stop.scheduledArrivalMs + stop.delayMinutes * 60_000L
-        return DepartureBoardRepository.fetchDepartures(stop.evaNr, arrivalMs)
+        // Fenster beginnt 5 min vor der Ankunft, damit knapp verpasste Züge
+        // auf der Tafel bleiben (Sektion „Verpasst" statt kommentarlos weg).
+        return DepartureBoardRepository.fetchDepartures(stop.evaNr, arrivalMs - 5 * 60_000L)
     }
 
     private fun enrichConnectionDestinations(

@@ -34,6 +34,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Empfängt den OAuth-Redirect-Deep-Link von Träwelling (via Server-302) -->
+        <activity
+            android:name=".TraewellingCallbackActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="iceinfo" android:host="traewelling" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".IceNotificationService"
             android:enabled="true"

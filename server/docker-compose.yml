@@ -1,0 +1,52 @@
+services:
+  iceinfo-api:
+    build: .
+    container_name: iceinfo-api
+    restart: unless-stopped
+    environment:
+      - API_TOKEN=${API_TOKEN}
+      - DB_PATH=/data/journeys.db
+    volumes:
+      - ./data:/data
+    # Fallback/Debug: API auch auf dem Host unter 127.0.0.1:8091 erreichbar
+    ports:
+      - "127.0.0.1:8091:8000"
+
+  # Öffentliches Statistik-Dashboard (stats.iceinfo.de) — rendert Aggregate aus
+  # derselben DB, read-only. Eigenes Image-Build wie die API (dasselbe Dockerfile).
+  dashboard:
+    build: .
+    container_name: iceinfo-dashboard
+    restart: unless-stopped
+    command: uvicorn dashboard:app --host 0.0.0.0 --port 8000
+    environment:
+      - DB_PATH=/data/journeys.db
+    # Schreibzugriff auf FS-Ebene nötig (WAL legt -shm/-wal an); der eigentliche
+    # Schreibschutz kommt über PRAGMA query_only in dashboard.py.
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8093:8000"
+
+  # Web-Ansicht der Datenbank (data.iceinfo.de) — Datasette serviert die SQLite-DB
+  # read-only als durchsuchbare Tabelle. Zugriffsschutz kommt NICHT von hier,
+  # sondern von Cloudflare Access (Login vor dem Tunnel) — ohne Access-Policy
+  # wäre die Seite öffentlich!
+  datasette:
+    image: datasetteproject/datasette:latest
+    container_name: iceinfo-data
+    restart: unless-stopped
+    command: datasette -h 0.0.0.0 -p 8001 /data/journeys.db --setting default_page_size 50 --setting sql_time_limit_ms 2000
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8092:8001"
+
+# Falls cloudflared in einem eigenen Docker-Netzwerk läuft und den Container
+# per Namen erreichen soll, hier das Netzwerk eintragen (siehe README):
+#    networks:
+#      - cloudflared_net
+# networks:
+#   cloudflared_net:
+#     external: true
+#     name: <name-des-cloudflared-netzwerks>

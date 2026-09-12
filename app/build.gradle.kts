@@ -20,8 +20,8 @@ android {
         applicationId = "com.nruge.iceinfo"
         minSdk = 33
         targetSdk = 36
-        versionCode = 18
-        versionName = "6.2.1"
+        versionCode = 20
+        versionName = "6.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -31,6 +31,7 @@ android {
         }
         buildConfigField("String", "DB_CLIENT_ID",     "\"${localProps.getProperty("DB_CLIENT_ID", "")}\"")
         buildConfigField("String", "DB_CLIENT_SECRET", "\"${localProps.getProperty("DB_CLIENT_SECRET", "")}\"")
+        buildConfigField("String", "STATS_API_TOKEN",  "\"${localProps.getProperty("STATS_API_TOKEN", "")}\"")
     }
 
     buildTypes {
@@ -86,6 +87,7 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.browser)
     implementation("com.google.android.play:app-update-ktx:2.1.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)

@@ -58,6 +58,31 @@ internal data class ChangelogEntry(
 
 internal val changelog = listOf(
     ChangelogEntry(
+        version = "6.4",
+        newFeatures = listOf(
+            "„Meine Fahrten“ überarbeitet: Fahrtkarten sind jetzt aufgeräumt und übersichtlich)"
+        )
+    ),
+    ChangelogEntry(
+        version = "6.3",
+        newFeatures = listOf(
+            "Aufgezeichnete Fahrten können jetzt benannt und bearbeitet werden",
+            "Map mit allen Fahrten (Alle zusammen oder einzelne Tage)",
+            "Neuer Anschluss- /Abfahrtmonitor",
+            "Fahrten anonym hochladen und zur Statistik auf stats.iceinfo.de beitragen",
+            "Fahrt Ansehen öffner einen In-App-Browser mit der hochgeladenen Fahrt"
+        ),
+        fixes = listOf(
+            "Fix für Live Notification auf älteren Android Versionen",
+            "Wenn der Zug steht, werden bei aktiver Fahrtaufzeichnung keie GPS punkte mehr gespeichert.",
+            "Die Fahrtaufzeichnung beinhaltet jetzt die Baurehihe",
+            "Die Koordinaten in Fahrtaufteichnungen werden nur noch mit 5 Nachkommastellen gespeichert",
+            "Anschlüsse vorrübergehend aus dem unteren Menüband entfernt - der API entpunkt ist momentan nicht verwendbar",
+            "Neue Ausstiegs-Erkennung reachedNext - der isNext-Halt gilt als Ausstieg, wenn der Zug ihn erreicht hat",
+            "UI-Änderungen"
+        )
+    ),
+    ChangelogEntry(
         version = "6.2",
         newFeatures = listOf(
             "Zug-Seite zeigt nun den Taufnamen des Zuges",

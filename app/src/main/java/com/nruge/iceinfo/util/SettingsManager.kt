@@ -21,6 +21,25 @@ object SettingsManager {
     private const val KEY_COACH_NUMBER = "coach_number"
     private const val KEY_SEAT_NUMBER = "seat_number"
     private const val KEY_PRIDE_FLAG_HIDDEN = "pride_flag_hidden"
+    private const val KEY_INSTALL_ID = "install_id"
+    private const val KEY_STATS_HINT_SHOWN = "stats_upload_hint_shown"
+
+    /**
+     * Zufällige, einmal pro Installation erzeugte UUID. Nicht personenbeziehbar;
+     * dient der Statistik-API nur zur Duplikat-/Missbrauchserkennung.
+     */
+    fun getInstallId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.getString(KEY_INSTALL_ID, null)?.let { return it }
+        val id = java.util.UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_INSTALL_ID, id).apply()
+        return id
+    }
+
+    /** Liest die Install-ID, ohne bei Fehlen eine neue zu erzeugen (reine Anzeige). */
+    fun peekInstallId(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_INSTALL_ID, null)
 
     fun isCrashReportingEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -122,6 +141,16 @@ object SettingsManager {
     fun setOnboardingShown(context: Context) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ONBOARDING_SHOWN, true).apply()
+    }
+
+    /** Einmaliger Hinweis auf das Fahrten-Teilen (Statistik-Upload) in der Fahrtenliste. */
+    fun isStatsHintShown(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_STATS_HINT_SHOWN, false)
+
+    fun setStatsHintShown(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_STATS_HINT_SHOWN, true).apply()
     }
 
     fun getLastSeenVersion(context: Context): Int =

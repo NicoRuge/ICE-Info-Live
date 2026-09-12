@@ -59,6 +59,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -93,10 +94,21 @@ fun ServiceScreen(
     searchResults: List<StationSearchResult>,
     onSearchQueryChange: (String) -> Unit,
     onStationSelect: (StationSearchResult) -> Unit,
-    onLoadTrainStation: (evaNr: String, name: String) -> Unit
+    onLoadTrainStation: (evaNr: String, name: String) -> Unit,
+    searchFabClicks: Int = 0
 ) {
     val targetStop = status.stops.find { it.evaNr == status.targetStopEva && !it.passed }
     var searchOpen by remember { mutableStateOf(false) }
+
+    // Such-FAB liegt fix über dem Pager (siehe AppNavigation);
+    // handledFabClicks verhindert erneutes Feuern nach Pager-Recreation
+    var handledFabClicks by rememberSaveable { mutableIntStateOf(searchFabClicks) }
+    LaunchedEffect(searchFabClicks) {
+        if (searchFabClicks > handledFabClicks) {
+            handledFabClicks = searchFabClicks
+            searchOpen = true
+        }
+    }
 
     LaunchedEffect(targetStop?.evaNr) {
         if (targetStop != null && serviceStation == null) {
@@ -120,21 +132,6 @@ fun ServiceScreen(
             ) { CircularProgressIndicator() }
             serviceStation.error != null -> ServiceErrorState(message = serviceStation.error)
             else -> StationFacilitiesContent(station = serviceStation)
-        }
-
-        FloatingActionButton(
-            onClick = { searchOpen = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 16.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            shape = MaterialTheme.shapes.extraLarge
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = stringResource(R.string.service_search_station)
-            )
         }
 
         AnimatedVisibility(

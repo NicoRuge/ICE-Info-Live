@@ -136,9 +136,12 @@ fun ConnectionCardContent(
 fun DepartureCardContent(
     dep: Departure,
     showRelative: Boolean = false,
-    referenceTime: LocalTime = LocalTime.now()
+    referenceTime: LocalTime = LocalTime.now(),
+    transferMinutes: Int? = null
 ) {
     val isCancelled = dep.cancelled
+    val isMissed = isCancelled || (transferMinutes != null && transferMinutes < 0)
+    val isTight = !isMissed && transferMinutes != null && transferMinutes < 5
 
     Row(
         modifier = Modifier
@@ -149,16 +152,24 @@ fun DepartureCardContent(
     ) {
         Surface(
             shape = CircleShape,
-            color = if (isCancelled) MaterialTheme.colorScheme.errorContainer
-            else MaterialTheme.colorScheme.secondaryContainer,
+            color = when {
+                isMissed -> MaterialTheme.colorScheme.errorContainer
+                isTight -> warningContainer()
+                transferMinutes != null -> successContainer()
+                else -> MaterialTheme.colorScheme.secondaryContainer
+            },
             modifier = Modifier.size(44.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Train,
                     contentDescription = null,
-                    tint = if (isCancelled) MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = when {
+                        isMissed -> MaterialTheme.colorScheme.onErrorContainer
+                        isTight -> onWarningContainer()
+                        transferMinutes != null -> onSuccessContainer()
+                        else -> MaterialTheme.colorScheme.onSecondaryContainer
+                    },
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -219,22 +230,38 @@ fun DepartureCardContent(
             )
         }
 
-        if (dep.platform.isNotEmpty()) {
-            TrackLabel(
-                text = stringResource(R.string.track_short, dep.platform),
-                changed = dep.platformChanged
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = MaterialTheme.shapes.extraSmall
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (dep.platform.isNotEmpty()) {
+                TrackLabel(
+                    text = stringResource(R.string.track_short, dep.platform),
+                    changed = dep.platformChanged
                 ) {
-                    Text(
-                        text = stringResource(R.string.track_short, dep.platform),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = stringResource(R.string.track_short, dep.platform),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
+            }
+            if (transferMinutes != null && !isCancelled && transferMinutes >= 0) {
+                Text(
+                    text = stringResource(R.string.connection_transfer_minutes, transferMinutes),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when {
+                        isMissed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        isTight -> onWarningContainer()
+                        else -> onSuccessContainer()
+                    }
+                )
             }
         }
     }

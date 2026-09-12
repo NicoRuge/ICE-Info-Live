@@ -56,6 +56,21 @@ fun ConnectionsScreen(
     val tight = connections.filter { it.reachable && it.transferMinutes != null && it.transferMinutes < 5 }
     val reachable = connections.filter { it.reachable && (it.transferMinutes == null || it.transferMinutes >= 5) }
 
+    // Live-Betrieb: Das Bordportal liefert keine Anschlüsse mehr — dann wird die
+    // Abfahrtstafel (ab Ankunft am gewählten Halt) selbst nach Umstiegszeit gruppiert.
+    val useDepartureBoard = connections.isEmpty()
+    val arrivalMs = (targetStop ?: status.stops.firstOrNull { !it.passed })?.effectiveArrivalMs ?: 0L
+    val boardEntries = if (useDepartureBoard) departures.map { dep ->
+        val transfer = if (arrivalMs > 0L && dep.plannedMs > 0L)
+            ((dep.plannedMs + dep.delayMinutes * 60_000L - arrivalMs) / 60_000L).toInt()
+        else null
+        dep to transfer
+    } else emptyList()
+    val hasTransferInfo = boardEntries.any { it.second != null }
+    val depMissed = boardEntries.filter { (dep, t) -> dep.cancelled || (t != null && t < 0) }
+    val depTight = boardEntries.filter { (dep, t) -> !dep.cancelled && t != null && t in 0..4 }
+    val depReachable = boardEntries.filter { (dep, t) -> !dep.cancelled && (t == null || t >= 5) }
+
     var showRelative by remember { mutableStateOf(false) }
     val referenceTime = if (isMockMode) LocalTime.of(8, 30) else LocalTime.now()
     LaunchedEffect(Unit) {
@@ -141,7 +156,7 @@ fun ConnectionsScreen(
             }
         }
 
-        if (connections.isEmpty()) {
+        if (connections.isEmpty() && departures.isEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.connections_none),
@@ -184,7 +199,7 @@ fun ConnectionsScreen(
             }
         }
 
-        if (departures.isNotEmpty()) {
+        if (!useDepartureBoard && departures.isNotEmpty()) {
             stickyHeader(key = "header_departures") {
                 StickyConnectionHeader(listState, "header_departures") {
                     ConnectionSectionHeader(Icons.Default.DirectionsTransit, stringResource(R.string.connections_section_departures))
@@ -192,6 +207,57 @@ fun ConnectionsScreen(
             }
             item(key = "group_departures") {
                 ConnectionGroup(departures) { dep -> DepartureCardContent(dep, showRelative, referenceTime) }
+            }
+        }
+
+        if (useDepartureBoard && boardEntries.isNotEmpty()) {
+            if (!hasTransferInfo) {
+                // Keine Ankunfts-/Abfahrtszeiten in Epoch-Form → flache Abfahrtstafel
+                stickyHeader(key = "header_dep_board") {
+                    StickyConnectionHeader(listState, "header_dep_board") {
+                        ConnectionSectionHeader(Icons.Default.DirectionsTransit, stringResource(R.string.connections_section_departures_board))
+                    }
+                }
+                item(key = "group_dep_board") {
+                    ConnectionGroup(departures) { dep -> DepartureCardContent(dep, showRelative, referenceTime) }
+                }
+            } else {
+                if (depReachable.isNotEmpty()) {
+                    stickyHeader(key = "header_dep_reachable") {
+                        StickyConnectionHeader(listState, "header_dep_reachable") {
+                            ConnectionSectionHeader(Icons.Default.CheckCircle, stringResource(R.string.connections_section_reachable), onSuccessContainer())
+                        }
+                    }
+                    item(key = "group_dep_reachable") {
+                        ConnectionGroup(depReachable) { (dep, transfer) ->
+                            DepartureCardContent(dep, showRelative, referenceTime, transferMinutes = transfer)
+                        }
+                    }
+                }
+                if (depTight.isNotEmpty()) {
+                    stickyHeader(key = "header_dep_tight") {
+                        StickyConnectionHeader(listState, "header_dep_tight") {
+                            ConnectionSectionHeader(Icons.Default.Warning, stringResource(R.string.connections_section_tight), onWarningContainer())
+                        }
+                    }
+                    item(key = "group_dep_tight") {
+                        ConnectionGroup(depTight) { (dep, transfer) ->
+                            DepartureCardContent(dep, showRelative, referenceTime, transferMinutes = transfer)
+                        }
+                    }
+                }
+                if (depMissed.isNotEmpty()) {
+                    stickyHeader(key = "header_dep_missed") {
+                        StickyConnectionHeader(listState, "header_dep_missed") {
+                            ConnectionSectionHeader(Icons.Default.Cancel, stringResource(R.string.connections_section_missed), MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    item(key = "group_dep_missed") {
+                        ConnectionGroup(depMissed) { (dep, transfer) ->
+                            DepartureCardContent(dep, showRelative, referenceTime, transferMinutes = transfer)
+                        }
+                    }
+                }
             }
         }
     }

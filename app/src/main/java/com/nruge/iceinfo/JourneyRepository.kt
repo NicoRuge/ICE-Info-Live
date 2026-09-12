@@ -23,8 +23,18 @@ object JourneyRepository {
     suspend fun loadJourneys(context: Context): List<SavedJourney> {
         val prefs = context.journeyDataStore.data.first()
         val raw = prefs[JOURNEYS_KEY] ?: return emptyList()
-        return runCatching { json.decodeFromString<List<SavedJourney>>(raw) }
+        val loaded = runCatching { json.decodeFromString<List<SavedJourney>>(raw) }
             .getOrDefault(emptyList())
+        // Einmalige Migration: Koordinaten alter Aufzeichnungen auf 5 Nachkommastellen
+        // kürzen. Bereits gekürzte Punkte bleiben identisch → kein erneutes Schreiben.
+        val compacted = loaded.map { journey ->
+            if (journey.trackPoints.isEmpty()) journey
+            else journey.copy(trackPoints = journey.trackPoints.map { it.rounded() })
+        }
+        if (compacted != loaded) {
+            context.journeyDataStore.edit { it[JOURNEYS_KEY] = json.encodeToString(compacted) }
+        }
+        return compacted
     }
 
     suspend fun saveJourney(context: Context, journey: SavedJourney) {
@@ -33,6 +43,18 @@ object JourneyRepository {
                 json.decodeFromString<List<SavedJourney>>(prefs[JOURNEYS_KEY] ?: "[]")
             }.getOrDefault(emptyList())
             prefs[JOURNEYS_KEY] = json.encodeToString(listOf(journey) + current)
+        }
+    }
+
+    /** Ersetzt die Fahrt mit gleicher id durch die übergebene Version (z. B. nach Bearbeiten). */
+    suspend fun updateJourney(context: Context, journey: SavedJourney) {
+        context.journeyDataStore.edit { prefs ->
+            val current = runCatching {
+                json.decodeFromString<List<SavedJourney>>(prefs[JOURNEYS_KEY] ?: "[]")
+            }.getOrDefault(emptyList())
+            prefs[JOURNEYS_KEY] = json.encodeToString(
+                current.map { if (it.id == journey.id) journey else it }
+            )
         }
     }
 
@@ -70,6 +92,7 @@ object JourneyRepository {
             }.getOrDefault(emptyList())
             val existingIds = current.mapTo(mutableSetOf()) { it.id }
             val new = imported.filter { it.id.isNotBlank() && it.id !in existingIds }
+                .map { j -> j.copy(trackPoints = j.trackPoints.map { it.rounded() }) }
             added = new.size
             merged = (current + new).sortedByDescending { sortKey(it) }
             prefs[JOURNEYS_KEY] = json.encodeToString(merged)

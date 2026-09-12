@@ -97,6 +97,10 @@ object IceUtils {
         return SERIES_MAP[effectiveSeries]?.bezeichnung ?: ""
     }
 
+    /** Alle bekannten Baureihen als (Code, Bezeichnung), z. B. ("412", "ICE 4") — für Auswahl-UIs. */
+    fun allSeries(): List<Pair<String, String>> =
+        SERIES_MAP.map { it.key to it.value.bezeichnung }
+
     fun getIceVmax(series: String, tzn: String? = null): Int? {
         val effectiveSeries = series.ifEmpty { tzn?.let { inferSeriesFromTzn(it) } ?: "" }
         return SERIES_MAP[effectiveSeries]?.vmaxKmh
