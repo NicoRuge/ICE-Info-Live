@@ -221,8 +221,8 @@ fun generateSpeedShareBitmap(context: Context, status: TrainStatus, isDark: Bool
     )
     canvas.drawRect(0f, 0f, W.toFloat(), H.toFloat(), bgPaint)
 
-    // Track strip at bottom
-    drawTracksOnCanvas(canvas, W, H, railColor, tieColor)
+    // Track strip at bottom – returns the top edge of the upper rail
+    val railTopY = drawTracksOnCanvas(canvas, W, H, railColor, tieColor)
 
     // Train image – right side, alpha-faded
     val trainDrawable = context.getDrawable(R.drawable.ice)
@@ -233,7 +233,8 @@ fun generateSpeedShareBitmap(context: Context, status: TrainStatus, isDark: Bool
         trainDrawable.setBounds(0, 0, trainW, trainH)
         trainDrawable.draw(Canvas(trainBmp))
         val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = if (isDark) 35 else 22 }
-        canvas.drawBitmap(trainBmp, (W - trainW + 80).toFloat(), ((H - trainH) / 2 - 30).toFloat(), fadePaint)
+        // The drawable's wheels touch the bottom of its viewport, so align its bottom with the rail
+        canvas.drawBitmap(trainBmp, (W - trainW + 80).toFloat(), railTopY - trainH, fadePaint)
         trainBmp.recycle()
     }
 
@@ -301,7 +302,7 @@ fun generateSpeedShareBitmap(context: Context, status: TrainStatus, isDark: Bool
     return rounded
 }
 
-private fun drawTracksOnCanvas(canvas: Canvas, W: Int, H: Int, railColor: Int, tieColor: Int) {
+private fun drawTracksOnCanvas(canvas: Canvas, W: Int, H: Int, railColor: Int, tieColor: Int): Float {
     val trackH = H * 0.12f
     val trackTop = H - trackH
 
@@ -320,6 +321,7 @@ private fun drawTracksOnCanvas(canvas: Canvas, W: Int, H: Int, railColor: Int, t
     val rail2Y = trackTop + trackH * 0.75f
     canvas.drawLine(0f, rail1Y, W.toFloat(), rail1Y, railPaint)
     canvas.drawLine(0f, rail2Y, W.toFloat(), rail2Y, railPaint)
+    return rail1Y - railPaint.strokeWidth / 2f
 }
 
 fun copySpeedCardToClipboard(context: Context, status: TrainStatus, isDark: Boolean) {
